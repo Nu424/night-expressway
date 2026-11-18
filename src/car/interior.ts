@@ -6,18 +6,19 @@ import * as THREE from 'three';
 import { U } from '../core/globals';
 import { state } from '../core/state';
 import { FONT, V3, clamp, lerp, sstep } from '../core/util';
-import { scene } from '../render/renderer';
+import { camera, scene } from '../render/renderer';
 import { ego } from '../traffic/traffic';
 import { lightAt } from '../world/lighting';
 import { lampsNear } from '../world/lamps';
 import VERT from '../shaders/interior.vert?raw';
 import FRAG from '../shaders/interior.frag?raw';
 
-export const iscene = new THREE.Scene();
+/** 車内の部品をまとめる親。カメラの子にして、車外と同じ描画パスで描く（描画を2回に分けると内蔵GPUで数ms余計にかかる）。 */
+export const iscene = new THREE.Group();
 export const icam = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.02, 10);
 export let mirrorMesh: THREE.Mesh, mirrorRT: THREE.WebGLRenderTarget, rearCam: THREE.PerspectiveCamera;
 
-const NL = 8;
+const NL = 6;
 const lampPos = Array.from({ length: NL }, () => new V3(0, 50, -50));
 const lampCol = Array.from({ length: NL }, () => new V3());
 const shared = { uLampPos: { value: lampPos }, uLampCol: { value: lampCol }, uAmb: { value: new V3(0.02, 0.02, 0.025) }, uGlow: { value: new V3() }, uWet: U.wet };
@@ -130,6 +131,8 @@ export function makeInterior() {
   const stem = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.2, 0.018), trim); stem.position.set(0, 0.12, -0.04); mirrorMesh.add(stem);
 
   drawCluster(0, false, 0); drawUnit();
+  // ミラーや反射用のカメラには映さない（レイヤー1は主カメラだけが見る）
+  iscene.traverse(o => o.layers.set(1)); camera.layers.enable(1); camera.add(iscene);
 }
 
 /* ---------------- メーターの描画 ---------------- */
@@ -179,14 +182,14 @@ export function setUnitLines(a: string, b: string) { cabin.unitLines = [a, b]; s
 const _L = [0, 0, 0];
 const cand: { e: number; x: number; y: number; z: number; c: number[] }[] = [];
 /** f: 自車位置の道路フレーム, camY: カメラの高さ(ワールド) */
-export function updateInterior(dt: number, f: any, camX: number, camY: number, camZ: number) {
+const _lp = new V3();
+export function updateInterior(dt: number) {
   // 近くの照明を車体座標へ移し、照度の大きい順に NL 個を光源として渡す
   const lamps = lampsNear(ego.s); cand.length = 0;
   for (const L of lamps) {
-    const dx = L.x - camX, dy = L.y - camY, dz = L.z - camZ;
-    const x = dx * f.rx + dz * f.rz, fw = dx * f.dx + dz * f.dz; const d2 = dx * dx + dy * dy + dz * dz + 1;
-    const e = Math.min(L.I * 1.25, L.I * L.h * L.h * L.h / Math.pow(d2, 1.5));
-    if (e > 0.004) cand.push({ e, x, y: dy, z: -fw, c: L.col });
+    _lp.set(L.x, L.y, L.z).applyMatrix4(camera.matrixWorldInverse);       // カメラ座標 = 車体座標
+    const e = Math.min(L.I * 1.25, L.I * L.h * L.h * L.h / Math.pow(_lp.lengthSq() + 1, 1.5));
+    if (e > 0.004) cand.push({ e, x: _lp.x, y: _lp.y, z: _lp.z, c: L.col });
   }
   cand.sort((a, b) => b.e - a.e);
   const k = 1.5 * cabin.sweep;

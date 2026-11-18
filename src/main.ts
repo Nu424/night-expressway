@@ -2,7 +2,7 @@ import './style.css';
 import * as THREE from 'three';
 import { sound } from './audio/sound';
 import { updateCamera } from './car/camera';
-import { icam, makeInterior, mirrorRT, rearCam, setUnitLines, updateInterior } from './car/interior';
+import { icam, iscene, makeInterior, mirrorRT, rearCam, setUnitLines, updateInterior } from './car/interior';
 import { AHEAD, BEHIND, CH, U } from './core/globals';
 import { settings } from './core/settings';
 import { dbg, state } from './core/state';
@@ -101,7 +101,7 @@ export function update(dt){
   const L0=lightAt(ego.s,ego.u,4); rainLines.material.uniforms.uLight.value.setRGB(0.05+L0[0]*0.12,0.05+L0[1]*0.12,0.06+L0[2]*0.12);
   rainLines.visible=state.rain>0.01;
   // 車内: 街灯の光とメーター
-  updateInterior(dt,f,camera.position.x,camera.position.y,camera.position.z);
+  updateInterior(dt);
   if(f.sec.id!==lastSecId){ lastSecId=f.sec.id; const sc=f.sec;
     if(sc.type==='tunnel') setUnitLines(sc.name[0],sc.name[1]); else if(sc.type==='bay') setUnitLines('湾港線 オーロラブリッジ','BAYSHORE ROUTE'); else setUnitLines('C1 都芯環状線','METRO RING — 外回り'); }
   updateDrops(dt);
@@ -157,7 +157,7 @@ export async function boot(){
   if(params.has('clean')) setView('clean');
   if(params.has('debug')) setDebug(true);
   if(params.has('perf')) togglePerf(true);
-  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={TYPES,newCar,ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
+  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={THREE,iscene,TYPES,newCar,ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
   const go=document.getElementById('go') as HTMLButtonElement; go.disabled=false; go.textContent='▶  出発';
   let last=performance.now()/1000;
   const loop=()=>{ requestAnimationFrame(loop); const nowMs=performance.now(); const now=nowMs/1000; perf.frame(nowMs); autoscaleTick((now-last)*1000); const dt=Math.min(0.05,now-last); last=now;

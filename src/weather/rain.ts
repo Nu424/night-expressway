@@ -14,7 +14,7 @@ export function makeRain(){
       void main(){ vec3 box=vec3(44.0,26.0,64.0);
         vec3 p=mod(seed.xyz*box+uDisp,box)-box*0.5; p.y+=4.0;
         vec3 wp=cameraPosition+p - uVel*0.022*seed.w;
-        vA=(1.0-smoothstep(10.0,32.0,length(p)))*(0.35+0.65*fract(seed.x*91.7));
+        vA=(1.0-smoothstep(10.0,32.0,length(p)))*smoothstep(2.2,4.5,length(p))*(0.35+0.65*fract(seed.x*91.7));
         gl_Position=projectionMatrix*viewMatrix*vec4(wp,1.0); }`,
     fragmentShader:`uniform float uAmt; uniform vec3 uLight; varying float vA; void main(){ gl_FragColor=vec4(uLight*vA*uAmt,1.0); }`,
     transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));

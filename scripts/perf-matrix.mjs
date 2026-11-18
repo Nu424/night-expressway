@@ -17,6 +17,13 @@ const VARIANTS = {
   groundOff: ['d.world.ground.visible=false', 'd.world.ground.visible=true'],
   skyOff: ['d.world.sky.visible=false', 'd.world.sky.visible=true'],
   chunksOff: ['for(const c of d.chunks.values()) c.g.visible=false', 'for(const c of d.chunks.values()) c.g.visible=true'],
+  iHidden: ['d.iscene.visible=false', 'd.iscene.visible=true'],
+  iOnlyDash: ['d.iscene.children.forEach((c,i)=>c.visible=i===0)', 'd.iscene.children.forEach(c=>c.visible=true)'],
+  iNoDash: ['d.iscene.children[0].visible=false', 'd.iscene.children[0].visible=true'],
+  iNoHood: ['d.iscene.children.forEach((c,i)=>{ if(c.material&&c.material.uniforms&&c.material.uniforms.uOutside&&c.material.uniforms.uOutside.value>0.5) c.visible=false; })', 'd.iscene.children.forEach(c=>c.visible=true)'],
+  iNoMirror: ['d.iscene.children[d.iscene.children.length-1].visible=false', 'd.iscene.children[d.iscene.children.length-1].visible=true'],
+  iBasic: ['d.iscene.overrideMaterial=new d.THREE.MeshBasicMaterial({color:0x050505})', 'd.iscene.overrideMaterial=null'],
+  iBasicFront: ['d.iscene.overrideMaterial=new d.THREE.MeshBasicMaterial({color:0x050505,side:d.THREE.DoubleSide})', 'd.iscene.overrideMaterial=null'],
   nothing: ['d.scene.visible=false; d.post.bloom=false; d.dbg.noMirror=true; d.interiorPass.enabled=false', 'd.scene.visible=true; d.post.bloom=true; d.dbg.noMirror=false; d.interiorPass.enabled=true'],
 };
 const scale = parseFloat(opt('--scale', '1'));

@@ -4,7 +4,7 @@
    全画面パスを最小限にし、内蔵GPUでも回るようにしている。
    ============================================================ */
 import * as THREE from 'three';
-import { icam, iscene } from '../car/interior';
+import { iscene } from '../car/interior';
 import { U } from '../core/globals';
 import { PR, camera, renderer, scene } from './renderer';
 import VERT from '../shaders/fullscreen.vert?raw';
@@ -98,8 +98,8 @@ export function resizePost() {
 export function renderFrame() {
   const autoClear = renderer.autoClear; renderer.autoClear = false;
   renderer.setRenderTarget(sceneRT); renderer.clear();
+  iscene.visible = interiorPass.enabled;
   renderer.render(scene, camera);
-  if (interiorPass.enabled) { renderer.clearDepth(); renderer.render(iscene, icam); }
 
   if (post.bloom && finalU.uBloom.value > 0) {
     let src: THREE.Texture = sceneRT.texture, sw = sceneRT.width, sh = sceneRT.height;

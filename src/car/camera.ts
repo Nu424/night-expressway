@@ -35,7 +35,6 @@ export function updateCamera(dt,f){
   camState.roll+= (rollT-camState.roll)*(1-Math.exp(-dt*2));
   camera.rotateZ(camState.roll);
   camera.updateMatrixWorld();
-  icam.position.set(nx*0.3,ny*0.3+state.bump*0.25,0); icam.rotation.set(0,0,camState.roll*0.5);
   // rear cam
   rearCam.position.set(f.x+f.rx*(ego.u-0.05),f.y+1.3,f.z+f.rz*(ego.u-0.05));
   rearCam.lookAt(f.x-f.dx*40+f.rx*(ego.u-0.05),f.y+0.6,f.z-f.dz*40+f.rz*(ego.u-0.05));
