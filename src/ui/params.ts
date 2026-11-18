@@ -85,7 +85,7 @@ range('sound.wiper', 'ワイパー音', 'SOUND/車', 1, 0, 2, 0.05, mix('wiper')
 range('sound.ui', '設定画面の操作音', 'SOUND/車', 1, 0, 2, 0.05, mix('ui'), { unit: 'x' });
 
 /* ---------------- TRIP ---------------- */
-select('trip.route', 'ルートの好み（この先から反映）', 'TRIP/道', 'auto', [['auto', 'おまかせ'], ['city', '都市多め'], ['tunnel', 'トンネル多め'], ['bay', '湾岸多め']], v => { tune.route = v; });
+select('trip.route', 'ルートの好み（この先から反映）', 'TRIP/道', 'auto', [['auto', 'おまかせ'], ['city', '都市多め'], ['tunnel', 'トンネル多め'], ['bay', '湾岸多め'], ['industrial', '工場夜景多め'], ['jct', 'JCT多め']], v => { tune.route = v; });
 select('trip.time', '時間の流れ', 'TRIP/時間', 'night', [['night', '深夜のまま'], ['dawn60', '60分で夜明け'], ['dawn20', '20分で夜明け'], ['dawn', '薄明で固定']],
   (v, prev) => { state.dawnMode = v; if (prev !== undefined || v !== 'night') state.dawnStart = U.time.value; if (v === 'night') state.dawn = 0; });
 select('trip.sleep', 'スリープタイマー', 'TRIP/時間', '0', [['0', 'オフ'], ['15', '15分'], ['30', '30分'], ['60', '60分'], ['90', '90分']],

@@ -124,7 +124,7 @@ export function update(dt){
   // 車内: 街灯の光とメーター
   perf.mark('world'); updateInterior(dt); perf.mark('interior');
   if(f.sec.id!==lastSecId){ lastSecId=f.sec.id; const sc=f.sec;
-    setRoadName(sc.type==='tunnel'?sc.name[0]: sc.type==='bay'?'湾港線 オーロラブリッジ':'C1 都芯環状線'); }
+    setRoadName(sc.type==='tunnel'?sc.name[0]: sc.type==='bay'?'湾港線 オーロラブリッジ': sc.type==='industrial'?'湾港線 臨海工業地帯': sc.type==='jct'?'C1 都芯環状線 '+sc.name:'C1 都芯環状線'); }
   updateDrops(dt); perf.mark('drops');
   renderTraffic(); perf.mark('cars');
   audioFrame({v:ego.v,acc:ego.acc,tunnel:state.tunnel,wet:state.wet,rain:state.rain*(1-state.tunnel),dt});

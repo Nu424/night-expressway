@@ -15,7 +15,7 @@ export function pointsMat(blink=false){
 export const PMAT:any={};
 export function makePoints(pos,col,size,blink=false){
   const gm=new THREE.BufferGeometry(); gm.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); gm.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
-  gm.setAttribute('size',new THREE.Float32BufferAttribute(new Array(pos.length/3).fill(size),1));
+  gm.setAttribute('size',new THREE.Float32BufferAttribute(Array.isArray(size)?size:new Array(pos.length/3).fill(size),1));
   const key=blink?'b':'s'; PMAT[key]=PMAT[key]||pointsMat(blink);
   const p=new THREE.Points(gm,PMAT[key]); p.frustumCulled=false; return p;
 }

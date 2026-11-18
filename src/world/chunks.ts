@@ -8,11 +8,13 @@ import { R, SEED, V3, clamp, mulberry32, pick, rr } from '../core/util';
 import { scene } from '../render/renderer';
 import { panel } from '../ui/controls';
 import { buildBay } from './bay';
+import { buildIndustrial } from './industrial';
+import { buildJct, jctAux, jctPlan } from './jct';
 import { ground } from './environment';
 import { GEO, centerBox, flatStrips, inst, lin, polyStrips, propM, sweep, unitBox } from './geometry';
 import { lightAt } from './lighting';
 import { MAT, buildingMat } from './materials';
-import { P, S, isEnc } from './path';
+import { P, S, isEnc, lampSkip } from './path';
 
 export const chunks=new Map();
 export const animated=[]; // objects with .tick(t)
@@ -101,19 +103,23 @@ export function buildChunk(ci){
     }
   } else {
     /* ---------------- open road deck ---------------- */
-    const bay=sec.type==='bay';
+    const bay=sec.type==='bay', ind=sec.type==='industrial', jct=sec.type==='jct';
+    const aux=jct && jctAux(sec,ls0);            // 減速・加速車線が付く範囲: 外側の高欄はランプ側が持つ
+    const low=bay||ind;                          // 低い高欄 + 手すり（外がよく見える）
     mesh(sweep(i0,i1,flatStrips(lin(-9.6,-0.5,7),0),{}),MAT.road);
     mesh(sweep(i0,i1,flatStrips(lin(0.5,9.6,7),0),{}),MAT.road);
-    for(const u of [-8.0,-1.0,1.0,8.0]) mesh(sweep(i0,i1,[[u-0.08,0.02,u+0.08,0.02]],{}),MAT.mark);
+    for(const u of [-8.0,-1.0,1.0,8.0]){ if(aux && Math.abs(u)>7) mesh(sweep(i0,i1,[[u-0.12,0.02,u+0.12,0.02]],{uS:1,vS:0.1}),MAT.markDash); else mesh(sweep(i0,i1,[[u-0.08,0.02,u+0.08,0.02]],{}),MAT.mark); }
     for(const u of [-4.5,4.5]) mesh(sweep(i0,i1,[[u-0.075,0.02,u+0.075,0.02]],{uS:1,vS:0.05}),MAT.markDash);
     // median barrier
     mesh(sweep(i0,i1,[[-0.5,0,-0.28,0.85],[-0.28,0.85,0.28,0.85],[0.28,0.85,0.5,0]],{}),MAT.concrete);
     // outer parapets incl. deck edge
-    const ph=bay?0.9:1.1;
-    mesh(sweep(i0,i1,[[-9.6,ph,-9.6,0],[-9.95,ph,-9.6,ph],[-9.95,-2.4,-9.95,ph]],{}),MAT.concrete);
-    mesh(sweep(i0,i1,[[9.6,0,9.6,ph],[9.6,ph,9.95,ph],[9.95,ph,9.95,-2.4]],{}),MAT.concrete);
+    const ph=low?0.9:1.1;
+    if(!aux){
+      mesh(sweep(i0,i1,[[-9.6,ph,-9.6,0],[-9.95,ph,-9.6,ph],[-9.95,-2.4,-9.95,ph]],{}),MAT.concrete);
+      mesh(sweep(i0,i1,[[9.6,0,9.6,ph],[9.6,ph,9.95,ph],[9.95,ph,9.95,-2.4]],{}),MAT.concrete);
+    }
     mesh(sweep(i0,i1,[[9.95,-2.4,-9.95,-2.4]],{bake:0}),MAT.darkConcrete);
-    if(bay){
+    if(low){
       mesh(sweep(i0,i1,[[-9.7,1.28,-9.7,1.2],[9.7,1.2,9.7,1.28]],{bake:0.3}),MAT.rail);
     }
     // sound wall (occasional, left side)
@@ -127,12 +133,12 @@ export function buildChunk(ci){
       const k0=Math.ceil((s0-f.off)/f.sp), k1=Math.floor((s0+CH-0.01-f.off)/f.sp);
       for(let k=k0;k<=k1;k++){
         const sl=k*f.sp+f.off; const a=S(Math.round(sl/STEP));
-        if(sec.type==='tunnel' && sl-sec.start>=sec.encStart-20 && sl-sec.start<sec.encEnd+20) continue;
-        if(bay){ if(f.u<0){ posts.push(propM(a,0,0.85,1,1,1).clone()); } heads.push(propM(a,f.u,f.h-0.1,1,1,1).clone()); }
+        if(lampSkip(sec,sl-sec.start)) continue;
+        if(bay||jct){ if(f.u<0){ posts.push(propM(a,0,0.85,1,1,1).clone()); } heads.push(propM(a,f.u,f.h-0.1,1,1,1).clone()); }
         else { const left=f.u<0; posts.push(propM(a,left?-9.78:9.78,ph,1,1,1,left?0:Math.PI).clone()); heads.push(propM(a,f.u,f.h-0.1,1,1,1).clone()); }
       }
     }
-    add(inst(bay?GEO.lampPostDouble:GEO.lampPost,MAT.metal,posts));
+    add(inst(bay||jct?GEO.lampPostDouble:GEO.lampPost,MAT.metal,posts));
     add(inst(GEO.lampHead,MAT.lampHead[sec.lamp],heads));
     // 灯具のまわりの光のにじみ（霞の中の光芒）
     if(heads.length){ const hp=[],hc=[]; const c=sec.col; const pv=new THREE.Vector3();
@@ -141,9 +147,9 @@ export function buildChunk(ci){
     // delineators (white on left edge, orange on median side)
     const dl=[],dc=[];
     for(let k=0;k<SPC;k+=5){ const a=S(i0+k);
-      dl.push(propM(a,-9.57,ph-0.25,0.045,0.045,0.045).clone()); dc.push([1.0,1.0,0.95]);
+      if(!aux){ dl.push(propM(a,-9.57,ph-0.25,0.045,0.045,0.045).clone()); dc.push([1.0,1.0,0.95]); }
       dl.push(propM(a,-0.42,0.62,0.045,0.045,0.045).clone()); dc.push([1.0,0.45,0.05]);
-      dl.push(propM(a,9.57,ph-0.25,0.045,0.045,0.045).clone()); dc.push([1.0,1.0,0.95]);
+      if(!aux){ dl.push(propM(a,9.57,ph-0.25,0.045,0.045,0.045).clone()); dc.push([1.0,1.0,0.95]); }
     }
     add(inst(GEO.sphere,MAT.reflector,dl,dc));
     // expansion joints
@@ -165,7 +171,8 @@ export function buildChunk(ci){
     // signage
     if(sec.type==='city' && ls0>200 && R()<0.32){ buildGantry(g,own,S(i0+25),R()<0.25?'led':'sign'); }
     else if(sec.type==='tunnel' && ls0===sec.encStart-400){ buildGantry(g,own,S(i0+25),'sign'); }
-    if(R()<0.22){ const a=S(i0+10); const sp=new THREE.Mesh(GEO.plane,MAT.speed); sp.matrix.copy(propM(a,-10.4,3.2,1.2,1.2,1,0).multiply(new THREE.Matrix4().makeRotationY(0))); sp.matrixAutoUpdate=false; g.add(sp);
+    else if(jct && (ls0===sec.mid-1100 || ls0===sec.mid-700)){ buildGantry(g,own,S(i0+25),'sign'); }
+    if(R()<0.22 && !(jct && Math.abs(ls0-sec.mid)<1000)){ const a=S(i0+10); const sp=new THREE.Mesh(GEO.plane,MAT.speed); sp.matrix.copy(propM(a,-10.4,3.2,1.2,1.2,1,0).multiply(new THREE.Matrix4().makeRotationY(0))); sp.matrixAutoUpdate=false; g.add(sp);
       add(inst(unitBox,MAT.metal,[propM(a,-10.4,0,0.08,3.2,0.08).clone()])); }
     if(sec.type==='tunnel' && ls0===sec.encEnd){ // exit portal (seen in mirror / looking back)
       const pm=[propM(a0,-4.95,7.0,13.2,2.6,0.8).clone(),propM(a0,-11.1,-1,0.8,10.6,0.8).clone(),propM(a0,1.0,-1,1.4,10.6,0.8).clone(),propM(a0,6.5,-1,9.8,10.6,0.8).clone()];
@@ -174,14 +181,17 @@ export function buildChunk(ci){
     }
     { const op=overpassFor(ci); if(op) buildOverpass(g,own,op); }
     if(bay) buildBay(g,own,sec,ls0,i0,i1);
+    if(ind) buildIndustrial(g,own,sec,ls0,i0,ci);
+    if(jct) buildJct(g,own,sec,ci,mesh);
   }
 
   /* ---------------- buildings ---------------- */
-  const nearCity = sec.type==='city' || (sec.type==='tunnel' && !enc) || (sec.type==='bay' && (ls0<sec.a1-250 || ls0>sec.a2+150));
+  const nearCity = sec.type==='city' || sec.type==='jct' || (sec.type==='tunnel' && !enc) || (sec.type==='bay' && (ls0<sec.a1-250 || ls0>sec.a2+150));
   if(nearCity && !enc){
     const bm=[],bc=[],roofR=[],bbs=[];
     const obst=[]; for(let k=-5;k<=5;k++){ const op=overpassFor(ci+k); if(op) obst.push([...op.seg,11]); }
-    const dens = sec.type==='city'?1: sec.type==='tunnel'?0.6:0.45;
+    if(sec.type==='jct'){ for(const o of jctPlan(sec).obst){ if(Math.hypot(o[0]-am.x,o[1]-am.z)<1100) obst.push(o); } }   // ランプと交差道路を避ける
+    const dens = sec.type==='city'?1: sec.type==='tunnel'?0.6: sec.type==='jct'?0.6:0.45;
     const layers=[[16,30,7,10,40,12,70],[45,230,11,18,50,20,130],[230,900,12,28,70,30,190]];
     for(const side of [-1,1]){
       for(const [ua,ub,cnt,fa,fb,ha,hb] of layers){

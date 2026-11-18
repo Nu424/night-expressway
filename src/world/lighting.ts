@@ -1,5 +1,5 @@
 import { sstep } from '../core/util';
-import { secAt } from './path';
+import { lampSkip, secAt } from './path';
 
 export const _L=[0,0,0];
 export function lightAt(s,u,y,out=_L){
@@ -14,11 +14,13 @@ export function lightAt(s,u,y,out=_L){
     return out;
   }
   let e=0;
+  if(sec.type==='jct' && Math.abs(ls-sec.mid)<40){   // 交差道路の桁下照明
+    for(const lu of [-6.2,-2.6,2.6,6.2]){ const ds=ls-sec.mid, du=u-lu, dy=y-8.5; e+=Math.min(0.9,0.5*8.5*8.5*8.5/Math.pow(ds*ds*0.5+du*du+dy*dy+1,1.5)); } }
   for(const f of sec.fam){
     const k0=Math.ceil((s-60-f.off)/f.sp), k1=Math.floor((s+60-f.off)/f.sp);
     for(let k=k0;k<=k1;k++){
       const sl=k*f.sp+f.off;
-      if(sec.type==='tunnel' && sl-sec.start>=sec.encStart-20 && sl-sec.start<sec.encEnd+20) continue;
+      if(lampSkip(sec,sl-sec.start)) continue;
       const ds=s-sl, du=u-f.u, dy=y-f.h;
       const d2=ds*ds+du*du+dy*dy+1;
       e+=Math.min(f.I*1.25, f.I*f.h*f.h*f.h/Math.pow(d2,1.5));

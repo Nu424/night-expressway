@@ -1,7 +1,7 @@
 # Night Expressway — 夜間走行
 
 深夜の都市高速を走り続ける、眺めるためのドライブシミュレーター。
-都市高架・トンネル・湾岸橋を自動生成し、街の灯り、雨、走行音、生成ラジオでリラックスできる時間を作る。
+都市高架・トンネル・湾岸橋・JCT・工場夜景を自動生成し、街の灯り、雨、走行音、生成ラジオでリラックスできる時間を作る。
 
 公開ページ: https://nu424.github.io/night-expressway/
 
@@ -30,7 +30,7 @@ Tab で開く。値は動かした瞬間に反映され、このブラウザに�
 | 天気 | 天気、雨量、水滴、ワイパー、移り変わる速さ |
 | ラジオ | 局、音量、テンポ、音色、音数、ドラム、テープの質感、トンネルでの減衰 |
 | 環境音 | ロードノイズ、風、継ぎ目、雨、車内のこもり、動力（ガソリン・ハイブリッド・EV） |
-| 旅 | ルートの好み、夜明けへの時間の流れ、スリープタイマー |
+| 旅 | ルートの好み（都市・トンネル・湾岸・工場夜景・JCT）、夜明けへの時間の流れ、スリープタイマー |
 | 保存 | プリセット（標準・深夜2時・雨の湾岸・トンネル・シネマ・眠りへ・軽量）、自作プリセット、URL共有、リセット |
 
 ## 開発
@@ -51,8 +51,10 @@ npm run build      # dist/ へ出力
 |---|---|
 | `npm run shots` | 定点撮影。同じシード・フレーム数で6シーンを `shots/current/` に出力 |
 | `node scripts/shots.mjs --only traffic,sweep0,dawn,side` | 追加シーン（車両、流れる光の連続コマ、夜明け、視点） |
+| `node scripts/shots.mjs --only jctA,jctC,jctD,indCanal,indPlantSide` | 新区間の確認用シーン（JCT、工場夜景。雨と夜明けは `jctRain,jctDawn,indRain,indDawn`） |
+| `node scripts/sections.mjs --seed 7` | 指定したシードで、どの距離にどの区間が出るかを一覧する |
 | `node scripts/shots.mjs --legacy` | 分割前の単一HTML版を同条件で撮影 |
-| `node scripts/perf.mjs --sec 40` | 実走行のフレーム時間・GPU時間・内部解像度を計測 |
+| `node scripts/perf.mjs --sec 40 --skip 12300` | 実走行のフレーム時間・GPU時間・内部解像度を計測（`--skip` でその距離から） |
 | `node scripts/perf-matrix.mjs --scale 0.7` | 要素を1つずつ無効にして負荷を切り分ける |
 | `node scripts/audio-check.mjs` | 各局と環境音を書き出し、音量・ピーク・帯域の偏りを数値で確認 |
 | `node scripts/ui-shot.mjs RADIO,VIEW` | 設定画面を開いて撮影し、全プリセットの適用を試す |
@@ -75,7 +77,7 @@ npm run build      # dist/ へ出力
 src/
   main.ts        起動とメインループ
   core/          乱数・定数・状態・設定レジストリ
-  world/         道路線形、区間、チャンク生成、ベイク照明、建物、照明の列挙、空と地面
+  world/         道路線形、区間、チャンク生成、ベイク照明、建物、照明の列挙、空と地面、区間ごとの構造物（bay / jct / industrial）
   traffic/       交通流（IDM）と車両描画
   car/           車内（メーター、流れる光）、カメラ（座席・見回し）
   weather/       天気遷移、雨、フロントガラスの水滴とワイパー

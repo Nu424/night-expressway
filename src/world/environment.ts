@@ -67,7 +67,9 @@ export function makeWorld(){
       void main(){
         vec2 p=vW.xz; float dist=length(vW-cameraPosition);
         float wm=0.0;
-        for(int i=0;i<${WATER_N};i++){ if(i>=uWaterN) break; vec3 w=uWater[i]; float l=length(p-w.xy); wm=max(wm,1.0-smoothstep(w.z-160.0,w.z,l)); }
+        float im=0.0;   // 工業地帯（半径が負の点）
+        for(int i=0;i<${WATER_N};i++){ if(i>=uWaterN) break; vec3 w=uWater[i]; float l=length(p-w.xy);
+          if(w.z>0.0) wm=max(wm,1.0-smoothstep(w.z-160.0,w.z,l)); else im=max(im,1.0-smoothstep(-w.z-260.0,-w.z,l)); }
         float px=max(fwidth(p.x),fwidth(p.y));
         // ---- land
         vec2 q=mat2(0.94,-0.34,0.34,0.94)*p;
@@ -99,6 +101,14 @@ export function makeWorld(){
         float inBlock=1.0-street;
         L+=mix(vec3(1.0,0.7,0.4),vec3(0.7,0.85,1.0),step(0.7,h12(hc+9.1)))*step(hr,0.16)*glow(hf*7.0,0.8,px)*0.6*inBlock;
         land+=L;
+        if(im>0.001){   // 工業地帯: 家と街路の代わりに、照明されたヤードとまばらな作業灯
+          vec3 ind=vec3(0.008,0.008,0.009);
+          ind+=vec3(1.0,0.55,0.22)*0.030*smoothstep(0.45,0.8,vn(p*0.011));
+          vec2 gs=vec2(46.0,58.0); vec2 gc=floor(q/gs); vec2 gf=mod(q,gs)-gs*0.5; float gr=h12(gc*1.71+3.3);
+          vec3 gcol=mix(vec3(1.0,0.58,0.24),vec3(0.75,0.95,0.88),step(0.55,gr));
+          ind+=gcol*step(gr,0.7)*(glow(gf,0.9,px)*1.5+0.035*exp(-dot(gf,gf)/90.0));
+          land=mix(land,ind,im);
+        }
         land*=mix(1.0,0.75,uWet);
         land+=vec3(0.035,0.04,0.052)*uDawn*(0.6+0.4*street);
         // ---- water
@@ -171,8 +181,14 @@ export function waterPoints(){
   const cand=[];
   for(const sec of sections){ if(sec.type!=='bay') continue; if(sec.end<ego.s-4000||sec.start>ego.s+4000) continue;
     for(let ls=sec.a1-150; ls<=sec.a2+150; ls+=110){ const s=sec.start+ls; const a=S(Math.round(s/STEP)); if(!a) continue; cand.push([a.x,a.z,Math.abs(s-ego.s)]); } }
+  // 工場夜景の区間: 左手の運河（水面）と、地面の柄を切り替える範囲（半径を負にして渡す）
+  let near=1e9;
+  for(const c of cand){ c[3]=1700; near=Math.min(near,c[2]); }
+  for(const sec of sections){ if(sec.type!=='industrial') continue; if(sec.end<ego.s-3000||sec.start>ego.s+3000) continue;
+    for(let ls=sec.wa; ls<=sec.wb; ls+=110){ const s=sec.start+ls; const a=S(Math.round(s/STEP)); if(!a||a.s<s-STEP) continue; const d=Math.abs(s-ego.s); cand.push([a.x-a.rx*260,a.z-a.rz*260,d,300]); near=Math.min(near,(s<ego.s?d*3:d)+1700); }   // 鏡像を描くのは運河の手前 1500m から、過ぎて 500m まで
+    for(let ls=0; ls<=sec.len; ls+=240){ const s=sec.start+ls; const a=S(Math.round(s/STEP)); if(!a||a.s<s-STEP) continue; cand.push([a.x,a.z,Math.abs(s-ego.s)+200,-1150]); } }
   cand.sort((p,q)=>p[2]-q[2]);
-  for(const c of cand){ if(n>=WATER_N) break; arr[n].set(c[0],c[1],1700); n++; }
+  for(const c of cand){ if(n>=WATER_N) break; arr[n].set(c[0],c[1],c[3]); n++; }
   ground.material.uniforms.uWaterN.value=n;
-  return cand.length && cand[0][2]<3200;
+  return near<3200;
 }

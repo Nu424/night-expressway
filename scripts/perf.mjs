@@ -1,5 +1,5 @@
 // 実走行の計測: 実際のループを指定秒数まわし、フレーム時間とチャンク生成時間を出力する。
-//   node scripts/perf.mjs [--sec 40] [--q "seed=7&rain=1"] [--legacy は非対応]
+//   node scripts/perf.mjs [--sec 40] [--q "seed=7&rain=1"] [--skip 12300] [--legacy は非対応]
 import puppeteer from 'puppeteer-core';
 import { preview } from 'vite';
 import { existsSync } from 'node:fs';
@@ -8,7 +8,7 @@ const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const CHROME = [process.env.CHROME_PATH, 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome'].find(p => p && existsSync(p));
-const sec = parseFloat(opt('--sec', '40')), q = opt('--q', 'seed=7');
+const sec = parseFloat(opt('--sec', '40')), q = opt('--q', 'seed=7') + (opt('--skip', '') ? '&skip=' + opt('--skip', '') : '');   // --skip 12300: その距離から計測
 const server = await preview({ preview: { port: 4720, strictPort: false } });
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: true,
   args: ['--window-size=1920,1080', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--mute-audio'] });

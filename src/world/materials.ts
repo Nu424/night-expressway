@@ -41,6 +41,33 @@ export let MAT:any={};
 export function makeMaterials(){
   TEX.asphalt.repeat.set(1,1);
   MAT.road=bakedMat({color:[0.13,0.13,0.135],map:TEX.asphalt,rough:0.9,refl:true,key:'road'});
+  MAT.roadPlain=bakedMat({color:[0.13,0.13,0.135],map:TEX.asphalt,rough:0.9,key:'roadp'});   // ランプ用（本線の高さの鏡像を使わない）
+  MAT.under=bakedMat({color:[0.2,0.2,0.2],map:TEX.concrete,rough:0.95,wetDark:0,key:'under'});   // 高架の裏面（下の道路の灯りを受ける）
+  // 工場の構造物。色はインスタンスごと。地上の投光器に照らされた感じを、高さと面の向きで出す
+  MAT.plant=new THREE.ShaderMaterial({
+    uniforms:{uHazeCol:U.hazeCol,uHaze:U.haze,uDawn:U.dawn},
+    vertexShader:`varying vec3 vC; varying vec3 vN; varying vec3 vW;
+      void main(){ mat4 m=modelMatrix*instanceMatrix; vec4 wp=m*vec4(position,1.0); vW=wp.xyz; vN=mat3(m)*normal;
+        #ifdef USE_INSTANCING_COLOR
+        vC=instanceColor;
+        #else
+        vC=vec3(0.05);
+        #endif
+        gl_Position=projectionMatrix*viewMatrix*wp; }`,
+    fragmentShader:`uniform vec3 uHazeCol; uniform float uHaze; uniform float uDawn; varying vec3 vC; varying vec3 vN; varying vec3 vW;
+      float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+      float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
+      void main(){ vec3 n=normalize(vN);
+        float side=dot(n,normalize(vec3(0.62,0.18,0.55)))*0.5+0.5;
+        float low=smoothstep(75.0,0.0,vW.y);
+        float k=(0.16+0.84*side*side)*(0.22+0.78*low*low)*(0.75+0.5*vn(vW.xz*0.13+vW.y*0.31));
+        vec3 c=vC*k*1.45+vec3(0.16,0.18,0.22)*uDawn*(0.35+0.65*max(n.y,0.0)+0.3*side)*(0.4+vC.g*6.0);
+        float d=length(vW-cameraPosition); c=mix(c,uHazeCol,1.0-exp(-pow(d*uHaze,2.0)));
+        gl_FragColor=vec4(c,1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`
+  });
   MAT.concrete=bakedMat({color:[0.28,0.28,0.27],map:TEX.concrete,rough:0.95,wetDark:0.3,key:'conc'});
   MAT.tile=bakedMat({color:[0.62,0.6,0.55],map:TEX.tile,rough:0.6,wetDark:0,key:'tile'});
   MAT.tunnelUpper=bakedMat({color:[0.13,0.13,0.13],map:TEX.concrete,rough:0.95,wetDark:0,key:'tup'});

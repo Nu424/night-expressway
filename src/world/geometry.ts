@@ -81,4 +81,5 @@ export function makeSharedGeometry(){
   GEO.dot=new THREE.BoxGeometry(1,1,1);
   GEO.sphere=new THREE.IcosahedronGeometry(1,1);
   GEO.plane=new THREE.PlaneGeometry(1,1);
+  GEO.cyl=new THREE.CylinderGeometry(1,1,1,10,1).translate(0,0.5,0);   // 半径1・高さ1、底面が原点
 }

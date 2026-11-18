@@ -9,8 +9,8 @@ import { clearDrops } from '../weather/drops';
 import { chunks } from '../world/chunks';
 import { P, S, sections } from '../world/path';
 
-export const SEC_COL={city:[1.0,0.72,0.3],tunnel:[1.0,0.3,0.75],bay:[0.3,0.75,1.0]};
-export const SEC_JP={city:'都市高架',tunnel:'トンネル',bay:'湾岸・橋'};
+export const SEC_COL={city:[1.0,0.72,0.3],tunnel:[1.0,0.3,0.75],bay:[0.3,0.75,1.0],industrial:[0.55,1.0,0.6],jct:[0.8,0.6,1.0]};
+export const SEC_JP={city:'都市高架',tunnel:'トンネル',bay:'湾岸・橋',industrial:'工場夜景',jct:'JCT'};
 export function makeDebug(){
   dbg.group=new THREE.Group(); dbg.group.visible=false; scene.add(dbg.group);
   const NP=2400;

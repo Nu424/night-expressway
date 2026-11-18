@@ -1,5 +1,5 @@
 /* 自車の近くにある照明の列挙。車内を流れる光やボンネットの映り込みに使う。 */
-import { frameAt, secAt } from './path';
+import { frameAt, lampSkip, secAt } from './path';
 
 export interface Lamp { s: number; u: number; h: number; col: number[]; I: number; x: number; y: number; z: number; e: number }
 const _fr: any = {};
@@ -25,7 +25,8 @@ export function lampsNear(s: number, behind = 40, ahead = 150): Lamp[] {
   // 街灯: 区間ごとの配列（間隔・左右・高さ）に従う
   for (let k = Math.ceil((s - behind) / 10); k * 10 <= s + ahead; k++) {
     const ls = k * 10; if (ls < 0) continue; const sec = secAt(ls), l = ls - sec.start;
-    if (sec.type === 'tunnel' && l >= sec.encStart - 20 && l < sec.encEnd + 20) continue;
+    if (sec.type === 'jct' && l === sec.mid) { push(ls, -6.2, 8.5, sec.col, 0.6); push(ls, -2.6, 8.5, sec.col, 0.6); }   // 交差道路の桁下照明
+    if (lampSkip(sec, l)) continue;
     for (const f of sec.fam) { if ((((ls - f.off) % f.sp) + f.sp) % f.sp === 0) push(ls, f.u, f.h, sec.col, f.I); }
   }
   return out;
