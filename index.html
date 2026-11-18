@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Night Expressway — 夜間走行</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%230b0a10%27/%3E%3Cpath d=%27M13 30 15.4 6h1.2L19 30z%27 fill=%27%232a2a30%27/%3E%3Ccircle cx=%279%27 cy=%2710%27 r=%273%27 fill=%27%23ffb36b%27/%3E%3Ccircle cx=%2723%27 cy=%2716%27 r=%272%27 fill=%27%23ff5a4a%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="start">
+  <div class="k">METRO RING EXPRESSWAY</div>
+  <h1>NIGHT EXPRESSWAY</h1>
+  <div class="sub">都芯環状高速 夜間走行</div>
+  <button id="go" disabled>準備中…</button>
+  <div class="hint">ヘッドホン推奨 ・ F 全画面 ・ R 天気 ・ V 視点 ・ B 俯瞰デバッグ ・ M ミュート ・ P 計測</div>
+</div>
+<div id="dbgInfo"></div>
+<div id="perfInfo"></div>
+<div id="panel" class="idle">
+  <button id="bWeather">天気: 自動</button>
+  <button id="bView">視点: 車内</button>
+  <button id="bQual">画質: 高</button>
+  <button id="bDebug">俯瞰</button>
+  <button id="bFull">全画面</button>
+  <span class="lbl">音量</span><input id="vol" type="range" min="0" max="1" step="0.01" value="0.8">
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

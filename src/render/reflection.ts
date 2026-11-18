@@ -1,0 +1,42 @@
+import * as THREE from 'three';
+import { U } from '../core/globals';
+import { V3 } from '../core/util';
+import { PR, camera, renderer, scene } from './renderer';
+import { rainLines } from '../weather/rain';
+import { ground } from '../world/environment';
+import { MAT, dummyTex } from '../world/materials';
+
+export let reflRT;
+export function makeReflRT(){ reflRT=new THREE.WebGLRenderTarget(Math.round(innerWidth*PR*0.5),Math.round(innerHeight*PR*0.5),{type:THREE.HalfFloatType}); } const reflCam=new THREE.PerspectiveCamera();
+export const _rp=new THREE.Plane(),_cp=new THREE.Vector4(),_qv=new THREE.Vector4(),_rv=new V3(),_cv=new V3(),_lv=new V3(),_tv=new V3(),_rot=new THREE.Matrix4(),_nrm=new V3(0,1,0);
+export function renderReflection(planeY){
+  _rv.set(0,planeY,0);
+  _cv.setFromMatrixPosition(camera.matrixWorld);
+  const view=_tv.subVectors(_rv,_cv); if(view.dot(_nrm)>0) return false;
+  view.reflect(_nrm).negate(); view.add(_rv);
+  _rot.extractRotation(camera.matrixWorld);
+  _lv.set(0,0,-1).applyMatrix4(_rot).add(_cv);
+  const target=new V3().subVectors(_rv,_lv).reflect(_nrm).negate().add(_rv);
+  reflCam.position.copy(view);
+  reflCam.up.set(0,1,0).applyMatrix4(_rot).reflect(_nrm);
+  reflCam.lookAt(target);
+  reflCam.far=camera.far; reflCam.near=camera.near;
+  reflCam.updateMatrixWorld(); reflCam.projectionMatrix.copy(camera.projectionMatrix);
+  U.texMat.value.set(0.5,0,0,0.5, 0,0.5,0,0.5, 0,0,0.5,0.5, 0,0,0,1).multiply(reflCam.projectionMatrix).multiply(reflCam.matrixWorldInverse);
+  _rp.setFromNormalAndCoplanarPoint(_nrm,_rv); _rp.applyMatrix4(reflCam.matrixWorldInverse);
+  _cp.set(_rp.normal.x,_rp.normal.y,_rp.normal.z,_rp.constant);
+  const pm=reflCam.projectionMatrix;
+  _qv.x=(Math.sign(_cp.x)+pm.elements[8])/pm.elements[0]; _qv.y=(Math.sign(_cp.y)+pm.elements[9])/pm.elements[5]; _qv.z=-1; _qv.w=(1+pm.elements[10])/pm.elements[14];
+  _cp.multiplyScalar(2/_cp.dot(_qv));
+  pm.elements[2]=_cp.x; pm.elements[6]=_cp.y; pm.elements[10]=_cp.z+1-0.003; pm.elements[14]=_cp.w;
+  reflCam.projectionMatrixInverse.copy(pm).invert();
+  const saved=U.reflTex.value; U.reflTex.value=dummyTex;
+  const rRoad=U.reflRoad.value, rW=U.reflWater.value; U.reflRoad.value=0; U.reflWater.value=0;
+  ground.visible=false; rainLines.visible=false;
+  const hide=[MAT.road,MAT.mark,MAT.markDash,MAT.markYellow,MAT.joint]; for(const m of hide) m.visible=false;
+  renderer.setRenderTarget(reflRT); renderer.clear(); renderer.render(scene,reflCam); renderer.setRenderTarget(null);
+  for(const m of hide) m.visible=true;
+  ground.visible=true; rainLines.visible=true;
+  U.reflTex.value=reflRT.texture; U.reflRoad.value=rRoad; U.reflWater.value=rW;
+  return true;
+}

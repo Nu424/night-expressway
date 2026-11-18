@@ -1,0 +1,29 @@
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:"Noto Sans JP",system-ui,sans-serif;color:#e8e6e3}
+  canvas#c{display:block;width:100vw;height:100vh}
+  body.hidecursor{cursor:none}
+  #start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 60%,rgba(0,0,0,.25),rgba(0,0,0,.78));transition:opacity 1.6s ease;z-index:5}
+  #start.gone{opacity:0;pointer-events:none}
+  #start .k{letter-spacing:.5em;font-size:12px;opacity:.6;margin-bottom:14px}
+  #start h1{margin:0;font-weight:900;font-size:clamp(28px,5vw,56px);letter-spacing:.12em}
+  #start .sub{margin-top:10px;font-size:14px;opacity:.7;letter-spacing:.2em}
+  #go{margin-top:38px;padding:14px 40px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.04);color:#fff;
+    font:inherit;font-size:15px;letter-spacing:.3em;border-radius:999px;cursor:pointer;transition:all .3s}
+  #go:hover{background:rgba(255,255,255,.14)}
+  #go:disabled{opacity:.4;cursor:default}
+  #start .hint{margin-top:22px;font-size:12px;opacity:.5;letter-spacing:.1em}
+  #panel{position:fixed;right:18px;bottom:18px;display:flex;gap:8px;align-items:center;z-index:4;
+    background:rgba(10,10,14,.55);backdrop-filter:blur(8px);padding:8px 10px;border-radius:14px;border:1px solid rgba(255,255,255,.08);
+    transition:opacity .8s;font-size:12px}
+  #panel.idle{opacity:0;pointer-events:none}
+  #panel button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#ddd;font:inherit;font-size:12px;
+    padding:6px 10px;border-radius:9px;cursor:pointer;white-space:nowrap}
+  #panel button:hover{background:rgba(255,255,255,.14)}
+  #panel input[type=range]{width:80px;accent-color:#ffb36b}
+  #panel .lbl{opacity:.55;margin-left:4px}
+  #dbgInfo{position:fixed;left:16px;top:16px;z-index:4;display:none;font:12px/1.65 ui-monospace,Menlo,monospace;color:#d8e6ff;
+    background:rgba(6,10,18,.72);border:1px solid rgba(140,180,255,.2);border-radius:10px;padding:10px 14px;white-space:pre;pointer-events:none}
+  #dbgInfo .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+  body.debug{cursor:grab} body.debug.dragging{cursor:grabbing}
+  #perfInfo{position:fixed;left:16px;bottom:16px;z-index:4;display:none;font:12px/1.6 ui-monospace,Menlo,monospace;color:#cfe;
+    background:rgba(6,10,18,.72);border:1px solid rgba(140,255,220,.18);border-radius:10px;padding:8px 12px;white-space:pre;pointer-events:none}

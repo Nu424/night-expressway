@@ -1,0 +1,74 @@
+import { LAMP_COLORS, STEP, TUNNEL_NAMES } from '../core/globals';
+import { R, clamp, lerp, pick, rr } from '../core/util';
+
+export const sections=[]; let secEnd=0, lastSpecial='bay';
+export function addSection(){
+  const prev=sections.length?sections[sections.length-1].type:null;
+  let type;
+  if(!prev) type='city';
+  else if(prev!=='city') type='city';
+  else { type = lastSpecial==='tunnel' ? (R()<0.88?'bay':'tunnel') : (R()<0.88?'tunnel':'bay'); lastSpecial=type; }
+  let len;
+  if(type==='city') len = prev? Math.round(rr(18,28))*100 : 2400;
+  else if(type==='tunnel') len = Math.round(rr(17,24))*100;
+  else len = Math.round(rr(27,32))*100;
+  const sec:any={type,start:secEnd,len,end:secEnd+len,id:sections.length,
+    baseY:rr(13,19),phase:rr(0,6.28),
+    lamp: type==='city'?pick(['sodium','warm','warm','white']): type==='tunnel'?pick(['sodium','sodium','warm']):pick(['white','warm'])};
+  if(type==='tunnel'){ sec.encStart=700; sec.encEnd=len-100; sec.name=pick(TUNNEL_NAMES); }
+  if(type==='bay'){ const mid=Math.round(len/200)*100; sec.mid=mid; sec.t1=mid-400; sec.t2=mid+400; sec.a1=sec.t1-360; sec.a2=sec.t2+360; }
+  sec.col=LAMP_COLORS[sec.lamp];
+  sec.fam = type==='bay'
+    ? [{sp:50,off:0,u:-2.9,h:12,I:1.4},{sp:50,off:0,u:2.9,h:12,I:1.4}]
+    : [{sp:40,off:0,u:-7.3,h:10,I:1.6},{sp:40,off:20,u:7.3,h:10,I:1.6}];
+  sections.push(sec); secEnd+=len;
+}
+export let _secC=null;
+export function secAt(s){
+  if(_secC && s>=_secC.start && s<_secC.end) return _secC;
+  while(secEnd<=s+1) addSection();
+  for(let i=sections.length-1;i>=0;i--) if(sections[i].start<=s){_secC=sections[i];return _secC;}
+  return sections[0];
+}
+export function isEnc(sec,ls){return sec.type==='tunnel' && ls>=sec.encStart && ls<sec.encEnd;}
+
+export const P={first:0,arr:[],h:0,k:0,kT:0,kTimer:0,x:0,z:0,y:16,slope:0};
+export function genSample(){
+  const i=P.first+P.arr.length, s=i*STEP;
+  const sec=secAt(s), ls=s-sec.start;
+  P.kTimer-=STEP;
+  if(P.kTimer<=0){
+    const maxK = sec.type==='city'?1/230 : sec.type==='tunnel'?1/420 : 1/2600;
+    let t = R()<0.25?0:rr(0.35,1)*maxK*(R()<0.5?-1:1);
+    if(P.h>0.55) t=-Math.abs(t)-maxK*0.3;
+    if(P.h<-0.55) t=Math.abs(t)+maxK*0.3;
+    P.kT=t; P.kTimer=rr(140,420);
+  }
+  let kT=P.kT;
+  if(sec.type==='bay' && ls>sec.a1-250 && ls<sec.a2+250) kT=0;
+  P.k+=clamp(kT-P.k,-0.00005*STEP,0.00005*STEP);
+  let ty;
+  if(sec.type==='city') ty=sec.baseY+3.5*Math.sin(ls/260+sec.phase);
+  else if(sec.type==='tunnel') ty=1.0;
+  else ty=42;
+  const desired=clamp((ty-P.y)*0.02,-0.045,0.045);
+  P.slope+=clamp(desired-P.slope,-0.0009*STEP,0.0009*STEP);
+  const a={i,s,x:P.x,y:P.y,z:P.z,h:P.h,slope:P.slope,sec,ls,enc:isEnc(sec,ls),
+    dx:Math.sin(P.h),dz:-Math.cos(P.h),rx:Math.cos(P.h),rz:Math.sin(P.h)};
+  P.arr.push(a);
+  P.h+=P.k*STEP;
+  P.x+=Math.sin(P.h)*STEP; P.z+=-Math.cos(P.h)*STEP; P.y+=P.slope*STEP;
+}
+export function S(i){ if(i<P.first) i=P.first; return P.arr[i-P.first]; }
+export function ensurePath(s){ while((P.first+P.arr.length-1)*STEP<s) genSample(); }
+export function trimPath(s){ const n=Math.floor(s/STEP)-P.first; if(n>0){P.arr.splice(0,n);P.first+=n;} }
+export function frameAt(s,o){
+  const fi=s/STEP; let i=Math.floor(fi); let t=fi-i;
+  if(i<P.first){i=P.first;t=0;}
+  const a=S(i), b=S(i+1)||a;
+  o.x=lerp(a.x,b.x,t); o.y=lerp(a.y,b.y,t); o.z=lerp(a.z,b.z,t);
+  o.h=lerp(a.h,b.h,t); o.slope=lerp(a.slope,b.slope,t);
+  o.dx=Math.sin(o.h); o.dz=-Math.cos(o.h); o.rx=Math.cos(o.h); o.rz=Math.sin(o.h);
+  o.sec=a.sec; o.enc=a.enc; o.ls=s-a.sec.start;
+  return o;
+}
