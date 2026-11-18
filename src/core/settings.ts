@@ -13,6 +13,7 @@ export interface ParamDef<T extends ParamValue = ParamValue> {
   min?: number; max?: number; step?: number; unit?: string;
   options?: { value: string; label: string }[];
   advanced?: boolean;         // 「詳細」に畳む項目
+  order?: number;             // 同じ小見出しの中での並び（小さいほど上。既定 0）
   apply?: (v: T, prev: T | undefined) => void;
 }
 export interface Preset { name: string; values: Record<string, ParamValue>; builtin?: boolean }
@@ -64,7 +65,8 @@ export class Settings {
   }
   def(id: string) { return this.defs.get(id); }
   list() { return [...this.defs.values()]; }
-  groups() { const m = new Map<string, ParamDef[]>(); for (const d of this.defs.values()) { if (!m.has(d.group)) m.set(d.group, []); m.get(d.group)!.push(d); } return m; }
+  groups() { const m = new Map<string, ParamDef[]>(); for (const d of this.defs.values()) { if (!m.has(d.group)) m.set(d.group, []); m.get(d.group)!.push(d); }
+    for (const a of m.values()) a.sort((x, y) => (x.order ?? 0) - (y.order ?? 0)); return m; }
 
   set(id: string, v: ParamValue, save = true) {
     const def = this.defs.get(id); if (!def) throw new Error('unknown param: ' + id);

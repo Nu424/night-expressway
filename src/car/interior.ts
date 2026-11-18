@@ -198,7 +198,8 @@ export function updateInterior(dt: number) {
   }
   // 環境光: 光源で直接照らす分を別にしたので、ここは「回り込む光」だけを弱く入れる
   lightAt(ego.s + 1.0, ego.u + 0.4, 1.6, _L); const a = 0.16 * cabin.ambient;
-  shared.uAmb.value.set(0.035 + _L[0] * a, 0.035 + _L[1] * a, 0.042 + _L[2] * a);
+  const dw = U.dawn.value * (1 - state.tunnel);
+  shared.uAmb.value.set(0.035 + _L[0] * a + dw * 0.5, 0.035 + _L[1] * a + dw * 0.6, 0.042 + _L[2] * a + dw * 0.85);
   const g = METER[cabin.meterColor].glow, gg = 0.012 * cabin.meterGain; shared.uGlow.value.set(g[0] * gg, g[1] * gg, g[2] * gg);
   clusterMat.uniforms.uEmissive.value = 1.25 * cabin.meterGain; unitMat.uniforms.uEmissive.value = 0.8 * cabin.meterGain;
 

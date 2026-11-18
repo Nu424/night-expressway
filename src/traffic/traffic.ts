@@ -1,3 +1,4 @@
+import { tune } from '../core/state';
 import * as THREE from 'three';
 import { LANES, LANES_OPP, U } from '../core/globals';
 import { R, V3, clamp, lerp, pick, rr, sstep } from '../core/util';
@@ -44,6 +45,8 @@ export function laneChangeOK(X,target){
 export function leaderOfLaneAt(X,lane){ let best=null,bd=1e9; for(const Y of sameDir){ if(Y===X||!occupies(Y,lane)) continue; const d=Y.s-X.s; if(d>-0.5&&d<bd){bd=d;best=Y;} } return best; }
 
 export function updateTraffic(dt){
+  // 巡航速度の倍率は、この関数の中だけ掛ける（乱数で決めた基準値は保つ）
+  let egoV0=ego.v0; ego.v0=egoV0*tune.speed;
   const sec=secAt(ego.s);
   sameDir=cars.filter(c=>c.dir>0); sameDir.push(ego); oppDir=cars.filter(c=>c.dir<0);
   // accelerations
@@ -73,7 +76,7 @@ export function updateTraffic(dt){
     if(X.lane===1 && R()<0.25 && laneChangeOK(X,0)){ X.lcFrom=1; X.lane=0; X.lc=0; }
   }
   // ego desired speed
-  ego.v0t-=dt; if(ego.v0t<=0){ ego.v0t=rr(15,40); const base=sec.type==='city'?70:sec.type==='tunnel'?66:82; ego.v0=(base+rr(-5,6))/3.6; }
+  ego.v0t-=dt; if(ego.v0t<=0){ ego.v0t=rr(15,40); const base=sec.type==='city'?70:sec.type==='tunnel'?66:82; egoV0=(base+rr(-5,6))/3.6; ego.v0=egoV0*tune.speed; }
   // ego lane change logic
   const ef=frameAt(ego.s,_f2);
   ego.signalT=Math.max(0,ego.signalT-dt);
@@ -84,7 +87,7 @@ export function updateTraffic(dt){
     ego.signal=0;
   }
   if(ego.lc>=0 && ego.lc<0.85) ego.blink=true; else if(ego.lc<0 && !ego.signal) ego.blink=false;
-  if(!ego.signal && ego.lc<0 && U.time.value-ego.lastLC>9 && !ef.enc){
+  if(tune.laneChange && !ego.signal && ego.lc<0 && U.time.value-ego.lastLC>9 && !ef.enc){
     const L=leaderOf(ego,ego.lane);
     if(ego.lane===0 && L && (L.s-ego.s)<70 && L.v<ego.v0-2.2 && laneChangeOK(ego,1)){ ego.signal=1; ego.signalT=2.6; ego.blink=true; }
     else if(ego.lane===1 && U.time.value-ego.lastLC>14 && laneChangeOK(ego,0)){ const L0=leaderOfLaneAt(ego,0); if(!L0||(L0.s-ego.s)>90||L0.v>ego.v0-1){ ego.signal=-1; ego.signalT=2.6; ego.blink=true; } }
@@ -93,7 +96,7 @@ export function updateTraffic(dt){
   for(let i=cars.length-1;i>=0;i--){ const c=cars[i];
     if(c.dir>0 && (c.s<ego.s-280||c.s>ego.s+1300)) cars.splice(i,1);
     else if(c.dir<0 && c.s<ego.s-220) cars.splice(i,1); }
-  const want=sec.type==='tunnel'?5:sec.type==='bay'?6:7;
+  const want=(sec.type==='tunnel'?5:sec.type==='bay'?6:7)*tune.traffic;
   for(const lane of [0,1]){
     const inLane=cars.filter(c=>c.dir>0&&c.lane===lane);
     if(inLane.length<want && cars.length<MAXCARS-2){
@@ -103,9 +106,10 @@ export function updateTraffic(dt){
       if(inLane.every(c=>Math.abs(c.s-s)>40) && Math.abs(ego.s-s)>40) newCar(1,lane,s,Math.max(13,v0));
     }
     const opp=cars.filter(c=>c.dir<0&&c.lane===lane);
-    if(opp.length<(sec.type==='tunnel'?3:6) && cars.length<MAXCARS-2){
+    if(opp.length<(sec.type==='tunnel'?3:6)*tune.traffic && cars.length<MAXCARS-2){
       const s=ego.s+rr(1350,1600);
       if(opp.every(c=>Math.abs(c.s-s)>45)) newCar(-1,lane,s,rr(17,23)+lane*1.5);
     }
   }
+  ego.v0=egoV0;
 }

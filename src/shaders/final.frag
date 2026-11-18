@@ -2,7 +2,7 @@
 // シーンのアルファは「車外=1 / 車内=0」。水滴とワイパーは車外の画素にだけ掛ける。
 uniform sampler2D tScene; uniform sampler2D tBloom; uniform sampler2D tDrops;
 uniform vec2 uTexel;          // 水滴テクスチャの1画素
-uniform float uAmt; uniform vec4 uW1; uniform vec4 uW2; uniform float uAspect; uniform float uWipe; uniform float uFilm;
+uniform float uAmt; uniform vec4 uW1; uniform vec4 uW2; uniform vec2 uP1; uniform vec2 uP2; uniform float uAspect; uniform float uWipe; uniform float uFilm;
 uniform float uBloom; uniform float uExposure; uniform float uTime; uniform vec2 uRes;
 uniform float uFxaa; uniform vec2 uSceneTexel;
 uniform float uCA; uniform float uVignette; uniform float uGrain; uniform float uWarmth; uniform float uSaturation; uniform float uContrast;
@@ -65,8 +65,11 @@ void main(){
   }
   if(uWipe>0.5 && ext>0.001){
     vec2 p=vec2(uv.x*uAspect,uv.y);
+    // ブレード（太い）と、その中ほどを支えるアーム（細い）
     float d=min(segD(p,uW1.xy,uW1.zw),segD(p,uW2.xy,uW2.zw));
-    col=mix(col,vec3(0.003),(1.0-smoothstep(0.004,0.0075,d))*ext);
+    float arm=min(segD(p,uP1,mix(uW1.xy,uW1.zw,0.45)),segD(p,uP2,mix(uW2.xy,uW2.zw,0.45)));
+    float m=max(1.0-smoothstep(0.0055,0.0085,d),1.0-smoothstep(0.0025,0.0045,arm));
+    col=mix(col,vec3(0.004),m*ext);
   }
   col+=texture2D(tBloom,uv).rgb*uBloom;
   col=toSRGB(aces(col));

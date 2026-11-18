@@ -1,3 +1,4 @@
+import { tune } from '../core/state';
 import { icam, rearCam } from './interior';
 import { LANES, U } from '../core/globals';
 import { camState, dbg, state } from '../core/state';
@@ -21,7 +22,7 @@ export function updateCamera(dt,f){
   const px=f.x+f.rx*u, pz=f.z+f.rz*u;
   // head bob/noise
   const t=U.time.value;
-  const nx=Math.sin(t*1.7)*0.004+Math.sin(t*3.9)*0.002, ny=Math.sin(t*2.3)*0.003+Math.sin(t*6.1+1)*0.0015*(ego.v/20);
+  const nx=(Math.sin(t*1.7)*0.004+Math.sin(t*3.9)*0.002)*tune.bob, ny=(Math.sin(t*2.3)*0.003+Math.sin(t*6.1+1)*0.0015*(ego.v/20))*tune.bob;
   camera.position.set(px+nx,camY+ny,pz);
   const la=10+ego.v*0.55;
   const f2=frameAt(ego.s+la,_f2);

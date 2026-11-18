@@ -12,9 +12,9 @@ export let sky, ground, skyline, skylineLights, planes;
 export const WATER_N=48;
 export function makeWorld(){
   sky=new THREE.Mesh(new THREE.SphereGeometry(8500,48,24),new THREE.ShaderMaterial({
-    uniforms:{uTime:U.time,uRain:U.rain},side:THREE.BackSide,depthWrite:false,fog:false,
+    uniforms:{uTime:U.time,uRain:U.rain,uDawn:U.dawn},side:THREE.BackSide,depthWrite:false,fog:false,
     vertexShader:`varying vec3 vDir; void main(){ vDir=position; vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_Position=p.xyww; }`,
-    fragmentShader:`uniform float uTime; uniform float uRain; varying vec3 vDir;
+    fragmentShader:`uniform float uTime; uniform float uRain; uniform float uDawn; varying vec3 vDir;
       float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
       float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
       float fbm(vec2 p){ float s=0.,a=0.5; for(int i=0;i<5;i++){ s+=a*vn(p); p*=2.03; a*=0.5; } return s; }
@@ -22,22 +22,32 @@ export function makeWorld(){
         vec3 zen=vec3(0.0025,0.0035,0.010), hor=vec3(0.085,0.058,0.062);
         float t=pow(clamp(e,0.0,1.0),0.42);
         vec3 c=mix(hor,zen,t);
+        float cl=0.0;
         if(e>0.0){
           vec2 uv=d.xz/(e+0.12)*1.3+vec2(uTime*0.004,uTime*0.002);
           float n=fbm(uv);
-          float cl=smoothstep(0.42-uRain*0.32,0.88,n);
+          cl=smoothstep(0.42-uRain*0.32,0.88,n);
           vec3 cc=mix(vec3(0.075,0.05,0.045),vec3(0.03,0.025,0.03),t)*(1.0+uRain*0.5);
           c=mix(c,cc,cl*0.85);
           vec2 sg=floor(d.xz/(e+0.3)*260.0);
-          float st=step(0.9975,h21(sg))*smoothstep(0.15,0.6,e)*(1.0-cl)*(1.0-uRain);
+          float st=step(0.9975,h21(sg))*smoothstep(0.15,0.6,e)*(1.0-cl)*(1.0-uRain)*clamp(1.0-uDawn*1.6,0.0,1.0);
           c+=vec3(0.5,0.55,0.7)*st*0.25;
           // 月: 薄雲ごしににじむ
           vec3 md=normalize(vec3(-0.46,0.36,-0.81)); float ma=dot(d,md);
           float disc=smoothstep(0.99994,0.99997,ma); float halo=exp(-(1.0-ma)*900.0)*0.10+exp(-(1.0-ma)*90.0)*0.035;
-          c+=vec3(1.0,0.96,0.86)*(disc*0.9*(1.0-cl*0.85)+halo*(1.0-cl*0.4))*(1.0-uRain);
+          c+=vec3(1.0,0.96,0.86)*(disc*0.9*(1.0-cl*0.85)+halo*(1.0-cl*0.4))*(1.0-uRain)*(1.0-uDawn*0.7);
           c+=vec3(0.05,0.032,0.022)*cl*(1.0-t)*0.6;
         }
         c=mix(c,mix(hor*1.25,vec3(0.05,0.045,0.05),t),uRain*0.55);
+        if(uDawn>0.001){   // 夜明け: 東の地平から色づき、天頂は深い青へ
+          float az=dot(normalize(d.xz+vec2(1e-5)),normalize(vec2(0.55,-0.83)))*0.5+0.5;
+          vec3 dz=mix(vec3(0.015,0.035,0.10),vec3(0.13,0.26,0.50),uDawn);
+          vec3 dh=mix(vec3(0.10,0.07,0.12),vec3(0.95,0.60,0.40),uDawn)*mix(0.45,1.0,az*az);
+          vec3 dc=mix(dh,dz,pow(clamp(e,0.0,1.0),0.5));
+          dc=mix(dc,dc*0.55+dh*0.25,cl*0.7);
+          dc=mix(dc,vec3(dot(dc,vec3(0.33)))*0.8,uRain*0.7);
+          c=mix(c,dc,smoothstep(0.0,0.6,uDawn));
+        }
         gl_FragColor=vec4(c,1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -47,9 +57,9 @@ export function makeWorld(){
 
   const wpts=[]; for(let i=0;i<WATER_N;i++) wpts.push(new V3(0,0,-1));
   ground=new THREE.Mesh(new THREE.PlaneGeometry(16000,16000,1,1).rotateX(-Math.PI/2),new THREE.ShaderMaterial({
-    uniforms:{uTime:U.time,uWater:{value:wpts},uWaterN:{value:0},uRefl:U.reflTex,uTexMat:U.texMat,uReflWater:U.reflWater,uHazeCol:U.hazeCol,uHaze:U.haze,uWet:U.wet,uRain:U.rain},
+    uniforms:{uTime:U.time,uWater:{value:wpts},uWaterN:{value:0},uRefl:U.reflTex,uTexMat:U.texMat,uReflWater:U.reflWater,uHazeCol:U.hazeCol,uHaze:U.haze,uWet:U.wet,uRain:U.rain,uDawn:U.dawn},
     vertexShader:`uniform mat4 uTexMat; varying vec3 vW; varying vec4 vR; void main(){ vec4 wp=modelMatrix*vec4(position,1.0); vW=wp.xyz; vR=uTexMat*wp; gl_Position=projectionMatrix*viewMatrix*wp; }`,
-    fragmentShader:`uniform float uTime; uniform vec3 uWater[${WATER_N}]; uniform int uWaterN; uniform sampler2D uRefl; uniform float uReflWater; uniform vec3 uHazeCol; uniform float uHaze; uniform float uWet; uniform float uRain;
+    fragmentShader:`uniform float uTime; uniform vec3 uWater[${WATER_N}]; uniform int uWaterN; uniform sampler2D uRefl; uniform float uReflWater; uniform vec3 uHazeCol; uniform float uHaze; uniform float uWet; uniform float uRain; uniform float uDawn;
       varying vec3 vW; varying vec4 vR;
       float h12(vec2 p){ vec3 p3=fract(vec3(p.xyx)*.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
       float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h12(i),h12(i+vec2(1,0)),f.x),mix(h12(i+vec2(0,1)),h12(i+vec2(1,1)),f.x),f.y); }
@@ -90,6 +100,7 @@ export function makeWorld(){
         L+=mix(vec3(1.0,0.7,0.4),vec3(0.7,0.85,1.0),step(0.7,h12(hc+9.1)))*step(hr,0.16)*glow(hf*7.0,0.8,px)*0.6*inBlock;
         land+=L;
         land*=mix(1.0,0.75,uWet);
+        land+=vec3(0.035,0.04,0.052)*uDawn*(0.6+0.4*street);
         // ---- water
         vec3 water=vec3(0.003,0.005,0.009);
         vec3 V=normalize(cameraPosition-vW);
@@ -103,6 +114,7 @@ export function makeWorld(){
           water+=rc/6.0*(0.25+F*1.1);
         } else water+=uHazeCol*F*0.9;
         water+=vec3(0.02,0.025,0.03)*pow(max(n1*n2,0.0),3.0)*F;
+        water+=vec3(0.10,0.15,0.24)*uDawn*(0.25+F);
         // shore lights
         float shore=smoothstep(0.0,0.3,wm)*smoothstep(0.75,0.35,wm);
         vec3 col=mix(land,water,smoothstep(0.35,0.55,wm));

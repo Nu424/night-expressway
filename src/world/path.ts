@@ -1,3 +1,4 @@
+import { tune } from '../core/state';
 import { LAMP_COLORS, STEP, TUNNEL_NAMES } from '../core/globals';
 import { R, clamp, lerp, pick, rr } from '../core/util';
 
@@ -7,9 +8,11 @@ export function addSection(){
   let type;
   if(!prev) type='city';
   else if(prev!=='city') type='city';
-  else { type = lastSpecial==='tunnel' ? (R()<0.88?'bay':'tunnel') : (R()<0.88?'tunnel':'bay'); lastSpecial=type; }
+  else { // ルートの好み: 乱数の消費回数は変えず、選ぶ確率だけを動かす
+    const sw= tune.route==='tunnel' ? (lastSpecial==='tunnel'?0.15:0.97) : tune.route==='bay' ? (lastSpecial==='bay'?0.15:0.97) : 0.88;
+    type = lastSpecial==='tunnel' ? (R()<sw?'bay':'tunnel') : (R()<sw?'tunnel':'bay'); lastSpecial=type; }
   let len;
-  if(type==='city') len = prev? Math.round(rr(18,28))*100 : 2400;
+  if(type==='city') len = prev? Math.round(rr(18,28)*(tune.route==='city'?1.8:tune.route==='auto'?1:0.6))*100 : 2400;
   else if(type==='tunnel') len = Math.round(rr(17,24))*100;
   else len = Math.round(rr(27,32))*100;
   const sec:any={type,start:secEnd,len,end:secEnd+len,id:sections.length,
@@ -17,6 +20,7 @@ export function addSection(){
     lamp: type==='city'?pick(['sodium','warm','warm','white']): type==='tunnel'?pick(['sodium','sodium','warm']):pick(['white','warm'])};
   if(type==='tunnel'){ sec.encStart=700; sec.encEnd=len-100; sec.name=pick(TUNNEL_NAMES); }
   if(type==='bay'){ const mid=Math.round(len/200)*100; sec.mid=mid; sec.t1=mid-400; sec.t2=mid+400; sec.a1=sec.t1-360; sec.a2=sec.t2+360; }
+  sec.lampOwn=sec.lamp; if(tune.lamp!=='auto') sec.lamp=tune.lamp;
   sec.col=LAMP_COLORS[sec.lamp];
   sec.fam = type==='bay'
     ? [{sp:50,off:0,u:-2.9,h:12,I:1.4},{sp:50,off:0,u:2.9,h:12,I:1.4}]
@@ -72,3 +76,6 @@ export function frameAt(s,o){
   o.sec=a.sec; o.enc=a.enc; o.ls=s-a.sec.start;
   return o;
 }
+
+/** 街灯の色を全区間で切り替える（'auto' は区間ごとの元の色）。照明は頂点に焼き込んであるので、呼んだ側でチャンクを作り直す。 */
+export function setLampOverride(k){ tune.lamp=k; for(const sec of sections){ sec.lamp= k==='auto'?sec.lampOwn:k; sec.col=LAMP_COLORS[sec.lamp]; } }

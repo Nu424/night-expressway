@@ -27,3 +27,65 @@
   body.debug{cursor:grab} body.debug.dragging{cursor:grabbing}
   #perfInfo{position:fixed;left:16px;bottom:16px;z-index:4;display:none;font:12px/1.6 ui-monospace,Menlo,monospace;color:#cfe;
     background:rgba(6,10,18,.72);border:1px solid rgba(140,255,220,.18);border-radius:10px;padding:8px 12px;white-space:pre;pointer-events:none}
+
+/* ---------------- ヘッドユニット（設定画面） ---------------- */
+:root{--hu:#ffb060;--hu-dim:#7a4a1c;--hu-bg:rgba(8,9,13,.86)}
+:root[data-hu=ice]{--hu:#cfe8ff;--hu-dim:#4a5f78}
+:root[data-hu=green]{--hu:#9dffc8;--hu-dim:#2f6b4e}
+#hu{position:fixed;left:50%;bottom:22px;width:min(900px,95vw);height:min(440px,66vh);transform:translate(-50%,0);z-index:6;display:flex;
+  background:var(--hu-bg);backdrop-filter:blur(14px) saturate(1.2);border:1px solid rgba(255,255,255,.09);border-radius:16px;
+  box-shadow:0 30px 80px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06),0 0 0 6px rgba(0,0,0,.35);overflow:hidden;
+  transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .35s;color:#d9d6d0;font-size:13px}
+#hu.closed{transform:translate(-50%,46px);opacity:0;pointer-events:none}
+#hu button{font:inherit;color:inherit;cursor:pointer}
+.hu-rail{display:flex;flex-direction:column;width:104px;background:rgba(0,0,0,.35);border-right:1px solid rgba(255,255,255,.06);padding:8px 0;overflow-y:auto}
+.hu-tab{background:none;border:0;border-left:2px solid transparent;padding:9px 12px;text-align:left;display:flex;flex-direction:column;gap:1px;opacity:.5;transition:all .2s}
+.hu-tab .en{font-size:10px;letter-spacing:.18em;font-weight:700}
+.hu-tab .jp{font-size:13px;font-weight:700}
+.hu-tab:hover{opacity:.85}
+.hu-tab.on{opacity:1;border-left-color:var(--hu);color:var(--hu);background:linear-gradient(90deg,rgba(255,255,255,.06),transparent);text-shadow:0 0 12px var(--hu-dim)}
+.hu-main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.hu-head{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.06)}
+.hu-brand{font-size:10px;letter-spacing:.3em;opacity:.4;font-weight:700}
+.hu-title{font-size:15px;font-weight:700;color:var(--hu);letter-spacing:.1em;flex:1}
+.hu-clock{font:700 14px ui-monospace,Menlo,monospace;color:var(--hu);opacity:.85}
+.hu-close{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:5px 10px;font-size:11px;opacity:.7}
+.hu-close:hover{opacity:1}
+.hu-body{flex:1;overflow-y:auto;padding:6px 16px 12px;scrollbar-width:thin;scrollbar-color:var(--hu-dim) transparent}
+.hu-sec{font-size:10px;letter-spacing:.24em;color:var(--hu);opacity:.75;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.06);font-weight:700}
+.hu-row{display:flex;align-items:center;gap:12px;padding:6px 0;min-height:30px}
+.hu-lab{flex:0 0 42%;font-size:13px;line-height:1.3}
+.hu-ctl{flex:1;display:flex;align-items:center;gap:10px;min-width:0}
+.hu-val{flex:0 0 58px;text-align:right;font:700 12px ui-monospace,Menlo,monospace;color:var(--hu)}
+.hu-reset{flex:0 0 22px;background:none;border:0;opacity:.45;font-size:14px;padding:0}
+.hu-reset:hover{opacity:1;color:var(--hu)}
+#hu input[type=range]{flex:1;min-width:0;appearance:none;-webkit-appearance:none;height:18px;background:transparent;--p:50%;cursor:pointer}
+#hu input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:linear-gradient(90deg,var(--hu) var(--p),rgba(255,255,255,.14) var(--p))}
+#hu input[type=range]::-moz-range-track{height:3px;border-radius:2px;background:rgba(255,255,255,.14)}
+#hu input[type=range]::-moz-range-progress{height:3px;border-radius:2px;background:var(--hu)}
+#hu input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#111;border:2px solid var(--hu);margin-top:-5px;box-shadow:0 0 10px var(--hu-dim)}
+#hu input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:#111;border:2px solid var(--hu)}
+.hu-switch{min-width:54px;padding:4px 0;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);font:700 11px ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.6}
+.hu-switch.on{border-color:var(--hu);color:var(--hu);opacity:1;box-shadow:0 0 12px -2px var(--hu-dim)}
+.hu-seg{display:flex;flex-wrap:wrap;gap:4px}
+.hu-seg button{padding:4px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);font-size:12px;opacity:.6}
+.hu-seg button.on{border-color:var(--hu);color:var(--hu);opacity:1;background:rgba(255,255,255,.07)}
+.hu-foot{display:flex;gap:8px;padding:8px 16px;border-top:1px solid rgba(255,255,255,.06)}
+.hu-chips{display:flex;flex-wrap:wrap;gap:8px;padding:6px 0}
+.hu-chip{padding:6px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);font-size:12px}
+.hu-chip:hover{border-color:var(--hu);color:var(--hu)}
+.hu-chip.user{border-style:dashed}
+.hu-chip.warn:hover{border-color:#ff7a6a;color:#ff7a6a}
+.hu-x{margin-left:8px;opacity:.5}
+.hu-x:hover{opacity:1}
+.hu-name{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:6px 10px;color:inherit;font:inherit;font-size:12px;width:180px;outline:none}
+.hu-name:focus{border-color:var(--hu)}
+.hu-note{font-size:11px;opacity:.5;margin-top:12px;line-height:1.6}
+.hu-now{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding:10px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(0,0,0,.3)}
+.hu-now-t{font-size:17px;font-weight:700;color:var(--hu);text-shadow:0 0 14px var(--hu-dim)}
+.hu-now-s{font:11px ui-monospace,Menlo,monospace;opacity:.6;margin-top:2px;letter-spacing:.08em}
+.hu-toast{position:absolute;left:50%;bottom:52px;transform:translate(-50%,8px);background:rgba(0,0,0,.8);border:1px solid var(--hu-dim);color:var(--hu);padding:6px 14px;border-radius:999px;font-size:12px;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap}
+.hu-toast.show{opacity:1;transform:translate(-50%,0)}
+body.hu-open #panel{opacity:0;pointer-events:none}
+#sleepVeil{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:3}
+@media (max-width:640px){ .hu-rail{width:64px} .hu-tab .en{display:none} .hu-lab{flex-basis:38%} .hu-brand{display:none} }

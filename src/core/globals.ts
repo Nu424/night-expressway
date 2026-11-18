@@ -9,7 +9,8 @@ export const U={
   hazeCol:{value:FOG_COLOR.clone()}, haze:{value:FOG_DENS},
   blink:{value:0}, pr:{value:1},
   cityLit:{value:0.6}, cityGain:{value:1},
-  proj:{value:700}, haloSpread:{value:1},
+  proj:{value:700}, haloSpread:{value:1}, haloGain:{value:1},
+  dawn:{value:0},   // 0=深夜 〜 1=夜明け
 };
 export const STEP=2, CH=100, SPC=CH/STEP;
 export const AHEAD=1600, BEHIND=200;

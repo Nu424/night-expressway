@@ -1,9 +1,11 @@
 import './style.css';
 import * as THREE from 'three';
-import { sound } from './audio/sound';
+import { audioFrame, radio, setRoadName, sound } from './audio/index';
+import { Radio, radioParams } from './audio/radio';
+import { Sound } from './audio/sound';
 import { updateCamera } from './car/camera';
-import { icam, iscene, makeInterior, mirrorRT, rearCam, setUnitLines, updateInterior } from './car/interior';
-import { AHEAD, BEHIND, CH, U } from './core/globals';
+import { icam, iscene, makeInterior, mirrorRT, rearCam, updateInterior } from './car/interior';
+import { AHEAD, BEHIND, CH, FOG_COLOR, U } from './core/globals';
 import { settings } from './core/settings';
 import { dbg, state } from './core/state';
 import { perf, togglePerf, updatePerfHud } from './debug/perf';
@@ -12,7 +14,7 @@ import { makeDebug, setDebug, updateDebug } from './debug/birdseye';
 import { autoscale, autoscaleTick, gpuBegin, gpuEnd, initAutoscale, loadHint } from './render/autoscale';
 import { finalU, interiorPass, makePost, post, renderFrame, resizePost } from './render/post';
 import { makeReflRT, reflRT, renderReflection } from './render/reflection';
-import { PR, camera, quality, renderer, scene } from './render/renderer';
+import { PR, camera, hemi, quality, renderer, scene } from './render/renderer';
 import { makeTraffic, renderTraffic } from './traffic/carRender';
 import { TYPES, _f, _f2, cars, ego, newCar, updateTraffic } from './traffic/traffic';
 import { applyAA, setView } from './ui/controls';
@@ -28,6 +30,10 @@ import { P, ensurePath, frameAt, sections, trimPath } from './world/path';
 import { makeBaseTextures, makeSignTextures } from './world/textures';
 
 export let frameN=0;
+let sleepShown=0; const sleepVeil=document.getElementById('sleepVeil')!;
+/** 眠りに落ちたあとは描画を止めて電力を節約する */
+export function isAsleep(){ return state.sleepEnd>0 && state.sleepFade>=0.999; }
+let wasEnc=false;
 const _vel=new THREE.Vector3();
 let lastSecId=-1;
 export let waterNear=false, lastWaterS=-1e9;
@@ -38,7 +44,7 @@ export function update(dt){
   ensurePath(ego.s+AHEAD+1100);
   // chunks
   const cA=Math.floor((ego.s-BEHIND)/CH), cB=Math.floor((ego.s+AHEAD)/CH);
-  let built=0;
+  let built= rebuildBudget>0 ? -3 : 0; if(rebuildBudget>0) rebuildBudget--;
   for(let ci=Math.max(0,cA);ci<=cB;ci++){ if(!chunks.has(ci) && built<1){ const t0=performance.now(); chunks.set(ci,buildChunk(ci)); perf.chunk(performance.now()-t0); built++; } }
   for(const [ci,c] of chunks){ if(ci<cA||ci>cB+1){ disposeChunk(c); chunks.delete(ci); } else for(const m of c.appearMats){ m.uniforms.uAppear.value=Math.min(1,(t-c.born)/2.5); } }
   trimPath(ego.s-1200);
@@ -48,7 +54,7 @@ export function update(dt){
   const f=frameAt(ego.s,_f);
   // joints
   const jsp=f.sec.type==='bay'?100:40;
-  if(!f.enc && f.y>4 && Math.floor(ego.s/jsp)!==Math.floor(prevS/jsp)){ sound.joint(ego.v); state.bumpV+=0.05; setTimeout(()=>{state.bumpV+=0.035;},2700/Math.max(ego.v,3)); }
+  if(!f.enc && f.y>4 && Math.floor(ego.s/jsp)!==Math.floor(prevS/jsp)){ sound.joint(ego.v); radio?.joint(); state.bumpV+=0.05; setTimeout(()=>{state.bumpV+=0.035;},2700/Math.max(ego.v,3)); }
   state.bumpV+= (-state.bump*160 - state.bumpV*14)*dt; state.bump+=state.bumpV*dt;
   // passing sounds
   for(const c of cars){
@@ -65,8 +71,22 @@ export function update(dt){
   // blinker
   if(ego.blink){ const ph=Math.floor(t*2.8); if(ph!==state.blinkPh){ state.blinkPh=ph; sound.tick(ph%2===0); } }
   // tunnel state
+  if(f.enc && !wasEnc) sound.whump();
+  wasEnc=f.enc;
   state.tunnel+= ((f.enc?1:0)-state.tunnel)*(1-Math.exp(-dt*2.5));
   updateWeather(dt);
+  // 時間の流れ: 深夜から夜明けへ
+  { const m=state.dawnMode; const el=t-state.dawnStart;
+    const target= m==='dawn60'?clamp(el/3600,0,1): m==='dawn20'?clamp(el/1200,0,1): m==='dawn'?0.75:0;
+    state.dawn+= (target-state.dawn)*(1-Math.exp(-dt*0.25));
+    const d=state.dawn, open=1-state.tunnel; U.dawn.value=d;
+    U.hazeCol.value.setRGB(lerp(FOG_COLOR.r,0.40,d),lerp(FOG_COLOR.g,0.36,d),lerp(FOG_COLOR.b,0.40,d)); (scene.fog as THREE.FogExp2).color.copy(U.hazeCol.value);
+    hemi.color.setRGB(0.05+0.75*d*open,0.05+0.95*d*open,0.08+1.35*d*open); hemi.groundColor.setRGB(0.03+0.4*d*open,0.025+0.36*d*open,0.02+0.34*d*open); }
+  // スリープタイマー: 最後の3分で音と画面をゆっくり落とす
+  if(state.sleepEnd>0){ const remain=(state.sleepEnd-performance.now())/1000; state.sleepFade=clamp(1-remain/180,0,1); }
+  else state.sleepFade+=(0-state.sleepFade)*(1-Math.exp(-dt*2));
+  if(Math.abs(state.sleepFade-sleepShown)>0.002){ sleepShown=state.sleepFade; sleepVeil.style.opacity=String(Math.pow(sleepShown,1.4)); sound.setDuck(1-sleepShown);
+    sleepVeil.style.pointerEvents= sleepShown>0.5?'auto':'none'; }
   // 目の順応: 明るい場所（トンネル内など）ではゆっくり絞り、暗い場所では開く
   { const La=lightAt(ego.s,ego.u,1.4); const lum=(La[0]+La[1]+La[2])/3;
     const target=clamp(1.22-0.30*Math.log2(1+lum*2.2),0.62,1.25);
@@ -103,13 +123,16 @@ export function update(dt){
   // 車内: 街灯の光とメーター
   updateInterior(dt);
   if(f.sec.id!==lastSecId){ lastSecId=f.sec.id; const sc=f.sec;
-    if(sc.type==='tunnel') setUnitLines(sc.name[0],sc.name[1]); else if(sc.type==='bay') setUnitLines('湾港線 オーロラブリッジ','BAYSHORE ROUTE'); else setUnitLines('C1 都芯環状線','METRO RING — 外回り'); }
+    setRoadName(sc.type==='tunnel'?sc.name[0]: sc.type==='bay'?'湾港線 オーロラブリッジ':'C1 都芯環状線'); }
   updateDrops(dt);
   renderTraffic();
-  sound.update({v:ego.v,acc:ego.acc,tunnel:state.tunnel,wet:state.wet,rain:state.rain*(1-state.tunnel)});
+  audioFrame({v:ego.v,acc:ego.acc,tunnel:state.tunnel,wet:state.wet,rain:state.rain*(1-state.tunnel),dt});
   // water / reflection points
   if(Math.abs(ego.s-lastWaterS)>60){ waterNear=waterPoints(); lastWaterS=ego.s; }
 }
+/** 生成済みの道路をすべて作り直す。近い所から順に、数フレームかけて再生成される。 */
+export function rebuildWorld(){ for(const c of chunks.values()) disposeChunk(c); chunks.clear(); rebuildBudget=40; }
+let rebuildBudget=0;
 export function render(){
   frameN++;
   gpuBegin();
@@ -157,11 +180,11 @@ export async function boot(){
   if(params.has('clean')) setView('clean');
   if(params.has('debug')) setDebug(true);
   if(params.has('perf')) togglePerf(true);
-  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={THREE,iscene,TYPES,newCar,ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
+  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={radioNow:()=>radio?`${radio.station().name} / ${radio.title}`:'(未開始)',Radio,radioParams,Sound,THREE,iscene,TYPES,newCar,ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
   const go=document.getElementById('go') as HTMLButtonElement; go.disabled=false; go.textContent='▶  出発';
   let last=performance.now()/1000;
   const loop=()=>{ requestAnimationFrame(loop); const nowMs=performance.now(); const now=nowMs/1000; perf.frame(nowMs); autoscaleTick((now-last)*1000); const dt=Math.min(0.05,now-last); last=now;
-    update(dt); render(); perf.cpu(performance.now()-nowMs); updatePerfHud(dt); };
+    update(dt); if(!isAsleep()) render(); perf.cpu(performance.now()-nowMs); updatePerfHud(dt); };
   if(params.has('frames')){ // deterministic stepping for testing
     const n=parseInt(params.get('frames')); for(let i=0;i<n;i++) update(1/30); render(); (window as any).__ready=true;
     (window as any).__step=(k,d=1/30)=>{ for(let i=0;i<k;i++) update(d); render(); };

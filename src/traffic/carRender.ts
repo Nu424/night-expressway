@@ -88,7 +88,7 @@ void main(){
   vL=instanceColor; vPart=part; vPaint= part>3.5? iPaint2 : iPaint;
   gl_Position=projectionMatrix*viewMatrix*wp;
 }`;
-const CAR_FS = `uniform vec3 uHazeCol; uniform float uHaze; uniform float uWet;
+const CAR_FS = `uniform vec3 uHazeCol; uniform float uHaze; uniform float uWet; uniform float uDawn;
 varying vec3 vN; varying vec3 vW; varying vec3 vL; varying vec3 vPaint; varying float vPart; varying vec3 vObj;
 void main(){
   vec3 N=normalize(vN); if(!gl_FrontFacing) N=-N;
@@ -97,7 +97,7 @@ void main(){
   float shade= up<0.0 ? 0.18 : 0.34+0.66*up;
   vec3 col;
   if(vPart<0.5||vPart>3.5){            // 塗装: 上面は街灯を映して明るく、縁は空を映す
-    col=vPaint*vL*shade + vL*(pow(max(up,0.0),5.0)*0.07*(1.0+uWet)) + uHazeCol*fr*0.35;
+    col=vPaint*(vL+vec3(0.5,0.6,0.8)*uDawn)*shade + vL*(pow(max(up,0.0),5.0)*0.07*(1.0+uWet)) + uHazeCol*fr*0.35;
   } else if(vPart<1.5){               // ガラス
     col=vec3(0.010,0.012,0.016)*vL + uHazeCol*fr*0.9 + vL*pow(max(up,0.0),3.0)*0.02;
   } else if(vPart<2.5){ col=vec3(0.006)*vL; }
@@ -117,7 +117,7 @@ const count: Record<string, number> = {};
 export const carLook = { glow: 1, glare: 1 };
 
 export function makeTraffic() {
-  const carMat = new THREE.ShaderMaterial({ vertexShader: CAR_VS, fragmentShader: CAR_FS, side: THREE.DoubleSide, uniforms: { uHazeCol: U.hazeCol, uHaze: U.haze, uWet: U.wet } });
+  const carMat = new THREE.ShaderMaterial({ vertexShader: CAR_VS, fragmentShader: CAR_FS, side: THREE.DoubleSide, uniforms: { uHazeCol: U.hazeCol, uHaze: U.haze, uWet: U.wet, uDawn: U.dawn } });
   const mk = (g: THREE.BufferGeometry, m: THREE.Material, n: number) => {
     const im = new THREE.InstancedMesh(g, m, n); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.count = 0; im.frustumCulled = false; im.setColorAt(0, new THREE.Color()); scene.add(im); return im;
   };

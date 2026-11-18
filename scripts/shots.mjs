@@ -27,6 +27,9 @@ export const SCENES = [
   { name: 'bay',     q: 'seed=7&frames=60&skip=7500' },
   { name: 'dashcam', q: 'seed=7&frames=200&clean=1' },
   { name: 'debug',   q: 'seed=7&frames=60&debug=1' },
+  // 夜明けの確認用
+  { name: 'dawn', q: 'seed=7&frames=200', extra: true, eval: `(() => { const d = window.__dbg; d.state.dawnMode = 'dawn'; d.state.dawn = 0.75; })()` },
+  { name: 'dawnbay', q: 'seed=7&frames=60&skip=7500&clean=1', extra: true, eval: `(() => { const d = window.__dbg; d.state.dawnMode = 'dawn'; d.state.dawn = 0.75; })()` },
   // 車両の形の確認用: 自車の近くに各車種を並べる
   { name: 'traffic', q: 'seed=7&frames=120&clean=1', extra: true, eval: `(() => { const d = window.__dbg, T = d.TYPES; d.cars.length = 0;
       T.forEach((t, i) => { const c = d.newCar(1, i % 2, d.ego.s + 9 + i * 7, 19); c.type = t; c.l = t.l; c.v = d.ego.v; c.v0 = d.ego.v; });

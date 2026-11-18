@@ -2,7 +2,7 @@
 // 近くでは窓1枚ごとに「部屋の箱」へ視線を飛ばして天井・床・壁を塗り分け（走行に合わせて視差が出る）、
 // 遠くでは平均色に落としてちらつきを防ぐ。
 uniform float uTime; uniform vec3 uHazeCol; uniform float uHaze; uniform float uAppear; uniform float uWinGain; uniform float uFar;
-uniform float uCityLit; uniform float uCityGain;
+uniform float uCityLit; uniform float uCityGain; uniform float uDawn;
 varying vec3 vObj; varying vec3 vN; varying vec3 vSeed; varying vec3 vSize; varying vec3 vW; varying vec3 vVd;
 float hash13(vec3 p3){ p3=fract(p3*0.1031); p3+=dot(p3,p3.zyx+31.32); return fract((p3.x+p3.y)*p3.z); }
 
@@ -30,12 +30,13 @@ void main(){
   vec3 n=normalize(vN);
   float style=floor(vSeed.z*3.999);
   float seed=floor(vSeed.x*997.0);
-  float litFrac=clamp(vSeed.y*uCityLit,0.0,1.0);
+  float litFrac=clamp(vSeed.y*uCityLit*(1.0-0.6*uDawn),0.0,1.0);
+  vec3 day=vec3(0.80,0.90,1.10)*(1.0+uDawn*7.0);   // 夜明けの空の明るさが外壁に乗る
   float gain=uWinGain*uCityGain;
   vec3 col;
   float d=length(vW-cameraPosition);
   if(n.y>0.5){
-    col=vec3(0.010,0.010,0.013);
+    col=vec3(0.010,0.010,0.013)*day;
     vec2 q=abs(vObj.xz)/(vSize.xz*0.5); float e=max(q.x,q.y);
     col+=vec3(0.02,0.017,0.014)*step(0.93,e);                                   // 屋上の縁
     float mech=step(0.72,hash13(vec3(floor(vObj.xz/6.0),seed)))*step(e,0.8);    // 屋上設備
@@ -71,7 +72,7 @@ void main(){
     float inten=(0.16+0.95*r3*r3)*gain;
     // 外壁: 様式と種で色味を変え、階ごとの帯を入れる。足元は街の明かりで少し明るい。
     vec3 tone= style<0.5? vec3(0.020,0.020,0.022) : style<1.5? vec3(0.026,0.022,0.019) : style<2.5? vec3(0.008,0.011,0.016) : vec3(0.022,0.021,0.022);
-    tone*=0.7+0.6*fract(seed*0.618);
+    tone*=(0.7+0.6*fract(seed*0.618))*mix(vec3(1.0),day,step(0.001,uDawn));
     float bandY=smoothstep(0.0,0.06+aa.y,f.y)*smoothstep(1.0,0.94-aa.y,f.y);
     vec3 facade=tone*mix(0.72,1.0,bandY);
     facade+=vec3(0.05,0.032,0.016)*exp(-vObj.y/7.0);

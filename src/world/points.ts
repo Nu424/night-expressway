@@ -21,15 +21,15 @@ export function makePoints(pos,col,size,blink=false){
 }
 
 /* 灯具のハロ: 実寸(m)で大きさを決め、距離に応じて縮む。雨や霞が濃いほど広がる。 */
-const HALO_VS=`attribute vec3 color; attribute float size; uniform float uProj; uniform float uHaze; uniform float uSpread; varying vec3 vC;
+const HALO_VS=`attribute vec3 color; attribute float size; uniform float uProj; uniform float uHaze; uniform float uSpread; uniform float uGain; varying vec3 vC;
 void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); gl_Position=projectionMatrix*mv; float d=max(-mv.z,1.0);
   float px=size*uSpread*uProj/d; gl_PointSize=clamp(px,1.0,160.0);
-  vC=color*exp(-pow(d*uHaze*0.8,2.0))*min(1.0,px*px*0.25)*smoothstep(1.5,7.0,d); }`;
+  vC=color*uGain*exp(-pow(d*uHaze*0.8,2.0))*min(1.0,px*px*0.25)*smoothstep(1.5,7.0,d); }`;
 const HALO_FS=`varying vec3 vC; void main(){ vec2 p=gl_PointCoord-0.5; float r=dot(p,p)*4.0; float a=exp(-r*5.0)*0.75+exp(-r*26.0)*0.6; a*=1.0-smoothstep(0.7,1.0,r); gl_FragColor=vec4(vC*a,1.0); }`;
 let haloMat=null;
 export function makeHalos(pos,col,size){
   const gm=new THREE.BufferGeometry(); gm.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); gm.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
   gm.setAttribute('size',new THREE.Float32BufferAttribute(new Array(pos.length/3).fill(size),1));
-  haloMat=haloMat||new THREE.ShaderMaterial({uniforms:{uProj:U.proj,uHaze:U.haze,uSpread:U.haloSpread},vertexShader:HALO_VS,fragmentShader:HALO_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+  haloMat=haloMat||new THREE.ShaderMaterial({uniforms:{uProj:U.proj,uHaze:U.haze,uSpread:U.haloSpread,uGain:U.haloGain},vertexShader:HALO_VS,fragmentShader:HALO_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
   const p=new THREE.Points(gm,haloMat); p.frustumCulled=false; return p;
 }

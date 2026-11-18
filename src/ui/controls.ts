@@ -1,4 +1,4 @@
-import { sound } from '../audio/sound';
+import { sound, startAudio } from '../audio/index';
 import { settings } from '../core/settings';
 import { dbg, state } from '../core/state';
 import { rr } from '../core/util';
@@ -9,6 +9,8 @@ import { autoscale, forceScale } from '../render/autoscale';
 import { interiorPass, post } from '../render/post';
 import { setQuality } from '../render/renderer';
 import { clearDrops } from '../weather/drops';
+import { isHeadUnitOpen, makeHeadUnit, toggleHeadUnit } from './headunit';
+import { actions } from './params';
 
 const $ = (id: string) => document.getElementById(id)!;
 /** 撮影用の ?frames 実行では解像度を固定し、結果を再現可能にする */
@@ -17,7 +19,7 @@ const optLabel = (id: string, v: string) => settings.def(id)!.options!.find(o =>
 
 /* ---- 既存の調整値を設定レジストリへ登録 ---- */
 settings.define<string>({
-  id: 'weather.mode', label: '天気', group: 'WEATHER', type: 'select', default: 'auto',
+  id: 'weather.mode', label: '天気', group: 'WEATHER/雨', type: 'select', default: 'auto', order: -1,
   options: [{ value: 'auto', label: '自動' }, { value: 'clear', label: '晴れ' }, { value: 'rain', label: '雨' }],
   apply: (v, prev) => {
     if (v === 'auto' && prev !== undefined && prev !== 'auto') state.weatherT = rr(60, 180);
@@ -25,7 +27,7 @@ settings.define<string>({
   },
 });
 settings.define<string>({
-  id: 'view.mode', label: '視点', group: 'DRIVE', type: 'select', default: 'interior',
+  id: 'view.mode', label: '視点', group: 'DRIVE/視点', type: 'select', default: 'interior', order: -1,
   options: [{ value: 'interior', label: '車内' }, { value: 'clean', label: 'ダッシュカム' }],
   apply: v => {
     state.view = v; interiorPass.enabled = v === 'interior' && !dbg.on;
@@ -59,7 +61,7 @@ export function applyAA() {
 settings.define<boolean>({ id: 'gfx.reflect', label: '路面・水面の反射', group: 'VIEW/画質', type: 'toggle', default: true });
 settings.define<boolean>({ id: 'gfx.mirror', label: 'ルームミラー', group: 'VIEW/画質', type: 'toggle', default: true });
 settings.define<number>({
-  id: 'audio.master', label: '音量', group: 'SOUND', type: 'range', default: 0.8, min: 0, max: 1, step: 0.01,
+  id: 'audio.master', label: '全体の音量', group: 'SOUND/全体', type: 'range', default: 0.8, min: 0, max: 1, step: 0.01,
   apply: v => { sound.setVolume(v); ($('vol') as HTMLInputElement).value = String(v); },
 });
 
@@ -68,18 +70,20 @@ export function setView(v: string) { settings.set('view.mode', v, false); }
 
 $('go').addEventListener('click', () => {
   $('start').classList.add('gone');
-  try { sound.start(); sound.setVolume(settings.get<number>('audio.master')); } catch (e) { /* 音が出せない環境でも走行は続ける */ }
+  try { startAudio(); sound.setVolume(settings.get<number>('audio.master')); } catch (e) { console.warn('audio unavailable', e); }
 });
 
 export const panel = $('panel'); let idleT: any;
 export function poke() {
   panel.classList.remove('idle'); document.body.classList.remove('hidecursor'); clearTimeout(idleT);
-  idleT = setTimeout(() => { panel.classList.add('idle'); document.body.classList.add('hidecursor'); }, 2600);
+  idleT = setTimeout(() => { panel.classList.add('idle'); if (!isHeadUnitOpen()) document.body.classList.add('hidecursor'); }, 2600);
 }
 addEventListener('mousemove', poke); addEventListener('touchstart', poke);
 
 export function toggleFull() { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) { /* 非対応環境 */ } }
 
+makeHeadUnit();
+$('bMenu').onclick = () => toggleHeadUnit();
 $('bWeather').onclick = () => settings.cycle('weather.mode');
 $('bView').onclick = () => settings.cycle('view.mode');
 $('bQual').onclick = () => settings.cycle('gfx.quality');
@@ -87,6 +91,9 @@ $('bFull').onclick = toggleFull;
 $('bDebug').onclick = () => setDebug(!dbg.on);
 $('vol').oninput = e => settings.set('audio.master', parseFloat((e.target as HTMLInputElement).value));
 addEventListener('keydown', e => {
+  if (e.key === 'Tab') { e.preventDefault(); toggleHeadUnit(); return; }
+  if (e.key === 'Escape' && isHeadUnitOpen()) { toggleHeadUnit(false); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (k === 'f') toggleFull();
   else if (k === 'r') settings.cycle('weather.mode');
@@ -94,5 +101,10 @@ addEventListener('keydown', e => {
   else if (k === 'm') sound.toggleMute();
   else if (k === 'b') setDebug(!dbg.on);
   else if (k === 'p') togglePerf();
+  else if (k === 'n') actions.nextSong();
   else if (k === 'h') panel.classList.add('idle');
 });
+
+// スリープで暗転したあとは、画面を押すかキーを押すと再開する
+const wake = () => { if (settings.get<string>('trip.sleep') !== '0' && (document.getElementById('sleepVeil') as HTMLElement).style.pointerEvents === 'auto') settings.set('trip.sleep', '0'); };
+document.getElementById('sleepVeil')!.addEventListener('pointerdown', wake); addEventListener('keydown', wake);

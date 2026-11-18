@@ -91,7 +91,7 @@ export function makeMaterials(){
 /* 建物シェーダ（インスタンス化した箱に、手続き的な窓を描く） */
 export function buildingMat(haze=FOG_DENS,winGain=0.7,far=1){
   return new THREE.ShaderMaterial({
-    uniforms:{uTime:U.time,uHazeCol:U.hazeCol,uHaze:{value:haze},uAppear:{value:1},uWinGain:{value:winGain},uFar:{value:far},uCityLit:U.cityLit,uCityGain:U.cityGain},
+    uniforms:{uTime:U.time,uHazeCol:U.hazeCol,uHaze:{value:haze},uAppear:{value:1},uWinGain:{value:winGain},uFar:{value:far},uCityLit:U.cityLit,uCityGain:U.cityGain,uDawn:U.dawn},
     vertexShader:BUILD_VS,fragmentShader:BUILD_FS
   });
 }

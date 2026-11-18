@@ -69,7 +69,7 @@ export function makePost() {
   upMat = fsMaterial(UP, { tLow: { value: null }, tHigh: { value: null }, uTexel: { value: new THREE.Vector2() }, uSpread: { value: 1 }, uLowGain: { value: 1 } });
   finalU = {
     tScene: { value: null }, tBloom: { value: null }, tDrops: { value: dropsTex },
-    uTexel: { value: new THREE.Vector2(1 / 640, 1 / 360) }, uAmt: { value: 0 }, uW1: { value: new THREE.Vector4() }, uW2: { value: new THREE.Vector4() },
+    uTexel: { value: new THREE.Vector2(1 / 640, 1 / 360) }, uAmt: { value: 0 }, uW1: { value: new THREE.Vector4() }, uW2: { value: new THREE.Vector4() }, uP1: { value: new THREE.Vector2() }, uP2: { value: new THREE.Vector2() },
     uAspect: { value: 16 / 9 }, uWipe: { value: 0 }, uFilm: { value: 0 },
     uBloom: { value: 0.09 }, uExposure: { value: 1.05 }, uTime: U.time, uRes: { value: new THREE.Vector2(1, 1) },
     uFxaa: { value: 0 }, uSceneTexel: { value: new THREE.Vector2() },
