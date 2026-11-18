@@ -21,13 +21,16 @@ export function makeBaseTextures(){
     for(let i=0;i<14;i++){x.fillRect(Math.random()*w,0,4+Math.random()*10,h);}
   });
   TEX.concrete=canvasTex(256,256,(x,w,h)=>{
+    // コンクリート: 細かな粒と大きなむら、雨だれの淡い筋。板目に見える強い線は入れない。
     x.fillStyle='#8a8a86';x.fillRect(0,0,w,h);
     const id=x.getImageData(0,0,w,h);
-    for(let i=0;i<w*h;i++){const n=(Math.random()-0.5)*26; for(let k=0;k<3;k++) id.data[i*4+k]+=n;}
+    for(let i=0;i<w*h;i++){const n=(Math.random()-0.5)*18; for(let k=0;k<3;k++) id.data[i*4+k]+=n;}
     x.putImageData(id,0,0);
-    x.globalAlpha=0.25;
-    for(let i=0;i<12;i++){x.fillStyle=Math.random()<0.5?'#555':'#aaa';x.fillRect(0,Math.random()*h,w,1+Math.random()*3);}
-    x.globalAlpha=0.5;x.fillStyle='#3a3a3a';x.fillRect(0,0,w,3);
+    for(let i=0;i<26;i++){ const cx=Math.random()*w, cy=Math.random()*h, r=20+Math.random()*50; const g=x.createRadialGradient(cx,cy,0,cx,cy,r);
+      const c=Math.random()<0.5?'40,40,40':'190,190,185'; g.addColorStop(0,`rgba(${c},0.10)`); g.addColorStop(1,`rgba(${c},0)`); x.fillStyle=g; x.fillRect(cx-r,cy-r,r*2,r*2); }
+    for(let i=0;i<7;i++){ const y=Math.random()*h, t=3+Math.random()*9, len=w*(0.3+Math.random()*0.6); const g=x.createLinearGradient(0,0,len,0);
+      g.addColorStop(0,'rgba(30,30,30,0.16)'); g.addColorStop(1,'rgba(30,30,30,0)'); x.fillStyle=g; x.fillRect(0,y,len,t); }
+    x.globalAlpha=0.35;x.fillStyle='#3a3a3a';x.fillRect(0,0,w,2);
   });
   TEX.tile=canvasTex(256,256,(x,w,h)=>{
     x.fillStyle='#d8d4c8';x.fillRect(0,0,w,h);

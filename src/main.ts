@@ -1,18 +1,20 @@
 import './style.css';
+import * as THREE from 'three';
 import { sound } from './audio/sound';
 import { updateCamera } from './car/camera';
-import { blinkLamp, iAmb, icam, makeInterior, mirrorRT, rearCam } from './car/interior';
+import { icam, makeInterior, mirrorRT, rearCam, setUnitLines, updateInterior } from './car/interior';
 import { AHEAD, BEHIND, CH, U } from './core/globals';
 import { settings } from './core/settings';
 import { dbg, state } from './core/state';
 import { perf, togglePerf, updatePerfHud } from './debug/perf';
-import { params, rr } from './core/util';
+import { clamp, lerp, params, rr } from './core/util';
 import { makeDebug, setDebug, updateDebug } from './debug/birdseye';
 import { autoscale, autoscaleTick, gpuBegin, gpuEnd, initAutoscale, loadHint } from './render/autoscale';
 import { finalU, interiorPass, makePost, post, renderFrame, resizePost } from './render/post';
 import { makeReflRT, reflRT, renderReflection } from './render/reflection';
 import { PR, camera, quality, renderer, scene } from './render/renderer';
-import { _f, _f2, _v2, cars, ego, makeTraffic, newCar, renderTraffic, updateTraffic } from './traffic/traffic';
+import { makeTraffic, renderTraffic } from './traffic/carRender';
+import { TYPES, _f, _f2, cars, ego, newCar, updateTraffic } from './traffic/traffic';
 import { applyAA, setView } from './ui/controls';
 import { updateDrops } from './weather/drops';
 import { makeRain, rainDisp, rainLines } from './weather/rain';
@@ -26,6 +28,8 @@ import { P, ensurePath, frameAt, sections, trimPath } from './world/path';
 import { makeBaseTextures, makeSignTextures } from './world/textures';
 
 export let frameN=0;
+const _vel=new THREE.Vector3();
+let lastSecId=-1;
 export let waterNear=false, lastWaterS=-1e9;
 export const sameDirPrev=new Map();
 export function update(dt){
@@ -59,11 +63,14 @@ export function update(dt){
   }
   if(sameDirPrev.size>200){ for(const k of sameDirPrev.keys()) if(!cars.includes(k)) sameDirPrev.delete(k); }
   // blinker
-  if(ego.blink){ const ph=Math.floor(t*2.8); if(ph!==state.blinkPh){ state.blinkPh=ph; sound.tick(ph%2===0); } blinkLamp.material.color.setRGB(0, (Math.floor(t*2.8)%2===0)?1.6:0, 0.3*((Math.floor(t*2.8)%2===0)?1:0)); }
-  else blinkLamp.material.color.setRGB(0,0,0);
+  if(ego.blink){ const ph=Math.floor(t*2.8); if(ph!==state.blinkPh){ state.blinkPh=ph; sound.tick(ph%2===0); } }
   // tunnel state
   state.tunnel+= ((f.enc?1:0)-state.tunnel)*(1-Math.exp(-dt*2.5));
   updateWeather(dt);
+  // 目の順応: 明るい場所（トンネル内など）ではゆっくり絞り、暗い場所では開く
+  { const La=lightAt(ego.s,ego.u,1.4); const lum=(La[0]+La[1]+La[2])/3;
+    const target=clamp(1.22-0.30*Math.log2(1+lum*2.2),0.62,1.25);
+    state.exposure+=(lerp(1,target,state.adapt)-state.exposure)*(1-Math.exp(-dt*(target<state.exposure?1.1:0.45))); }
   updateCamera(dt,f);
   if(dbg.on) updateDebug(dt,f);
   // world-following objects
@@ -87,15 +94,16 @@ export function update(dt){
   }
   pa.position.needsUpdate=true; pa.color.needsUpdate=true;
   // rain
-  const vel=_v2.set(f.dx*ego.v,0,f.dz*ego.v);
+  const vel=_vel.set(f.dx*ego.v,0,f.dz*ego.v);
   rainDisp.x+=-vel.x*dt+Math.sin(t*0.3)*0.6*dt; rainDisp.y+=-11*dt; rainDisp.z+=-vel.z*dt;
   rainLines.material.uniforms.uVel.value.set(-vel.x,-11,-vel.z);
   rainLines.material.uniforms.uAmt.value=state.rain*(1-state.tunnel);
   const L0=lightAt(ego.s,ego.u,4); rainLines.material.uniforms.uLight.value.setRGB(0.05+L0[0]*0.12,0.05+L0[1]*0.12,0.06+L0[2]*0.12);
   rainLines.visible=state.rain>0.01;
-  // interior lighting
-  const Li=lightAt(ego.s+1.0,ego.u+0.4,1.6);
-  iAmb.color.setRGB(0.25+Li[0]*0.9,0.25+Li[1]*0.9,0.28+Li[2]*0.9); iAmb.intensity=0.7;
+  // 車内: 街灯の光とメーター
+  updateInterior(dt,f,camera.position.x,camera.position.y,camera.position.z);
+  if(f.sec.id!==lastSecId){ lastSecId=f.sec.id; const sc=f.sec;
+    if(sc.type==='tunnel') setUnitLines(sc.name[0],sc.name[1]); else if(sc.type==='bay') setUnitLines('湾港線 オーロラブリッジ','BAYSHORE ROUTE'); else setUnitLines('C1 都芯環状線','METRO RING — 外回り'); }
   updateDrops(dt);
   renderTraffic();
   sound.update({v:ego.v,acc:ego.acc,tunnel:state.tunnel,wet:state.wet,rain:state.rain*(1-state.tunnel)});
@@ -114,6 +122,7 @@ export function render(){
     renderer.setRenderTarget(mirrorRT); renderer.clear(); renderer.render(scene,rearCam); renderer.setRenderTarget(null);
     U.reflRoad.value=saved; rainLines.visible=state.rain>0.01;
   }
+  finalU.uExposure.value=state.exposureBase*state.exposure;
   renderFrame();
   gpuEnd();
 }
@@ -148,7 +157,7 @@ export async function boot(){
   if(params.has('clean')) setView('clean');
   if(params.has('debug')) setDebug(true);
   if(params.has('perf')) togglePerf(true);
-  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
+  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={TYPES,newCar,ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
   const go=document.getElementById('go') as HTMLButtonElement; go.disabled=false; go.textContent='▶  出発';
   let last=performance.now()/1000;
   const loop=()=>{ requestAnimationFrame(loop); const nowMs=performance.now(); const now=nowMs/1000; perf.frame(nowMs); autoscaleTick((now-last)*1000); const dt=Math.min(0.05,now-last); last=now;

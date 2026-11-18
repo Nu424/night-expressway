@@ -8,6 +8,8 @@ export const U={
   reflRoad:{value:0}, reflWater:{value:0},
   hazeCol:{value:FOG_COLOR.clone()}, haze:{value:FOG_DENS},
   blink:{value:0}, pr:{value:1},
+  cityLit:{value:0.6}, cityGain:{value:1},
+  proj:{value:700}, haloSpread:{value:1},
 };
 export const STEP=2, CH=100, SPC=CH/STEP;
 export const AHEAD=1600, BEHIND=200;

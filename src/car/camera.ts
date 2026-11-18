@@ -1,9 +1,10 @@
 import { icam, rearCam } from './interior';
 import { LANES, U } from '../core/globals';
 import { camState, dbg, state } from '../core/state';
-import { clamp, lerp } from '../core/util';
+import { clamp, lerp , V3 } from '../core/util';
 import { camera } from '../render/renderer';
-import { _f2, _v1, ego } from '../traffic/traffic';
+import { _f2, ego } from '../traffic/traffic';
+const _v1=new V3();
 import { frameAt } from '../world/path';
 
 export function updateCamera(dt,f){

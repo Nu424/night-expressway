@@ -31,6 +31,11 @@ export function makeWorld(){
           vec2 sg=floor(d.xz/(e+0.3)*260.0);
           float st=step(0.9975,h21(sg))*smoothstep(0.15,0.6,e)*(1.0-cl)*(1.0-uRain);
           c+=vec3(0.5,0.55,0.7)*st*0.25;
+          // 月: 薄雲ごしににじむ
+          vec3 md=normalize(vec3(-0.46,0.36,-0.81)); float ma=dot(d,md);
+          float disc=smoothstep(0.99994,0.99997,ma); float halo=exp(-(1.0-ma)*900.0)*0.10+exp(-(1.0-ma)*90.0)*0.035;
+          c+=vec3(1.0,0.96,0.86)*(disc*0.9*(1.0-cl*0.85)+halo*(1.0-cl*0.4))*(1.0-uRain);
+          c+=vec3(0.05,0.032,0.022)*cl*(1.0-t)*0.6;
         }
         c=mix(c,mix(hor*1.25,vec3(0.05,0.045,0.05),t),uRain*0.55);
         gl_FragColor=vec4(c,1.0);

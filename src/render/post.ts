@@ -92,6 +92,7 @@ export function resizePost() {
   for (let i = 0; i < BLOOM_LEVELS; i++) { downRT.push(hdrTarget(bw, bh)); if (i < BLOOM_LEVELS - 1) upRT.push(hdrTarget(bw, bh)); bw >>= 1; bh >>= 1; }
   finalU.uRes.value.set(innerWidth * PR, innerHeight * PR);
   U.pr.value = PR * post.scale;
+  U.proj.value = h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
 }
 
 export function renderFrame() {

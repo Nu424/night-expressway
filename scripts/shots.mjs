@@ -27,6 +27,12 @@ export const SCENES = [
   { name: 'bay',     q: 'seed=7&frames=60&skip=7500' },
   { name: 'dashcam', q: 'seed=7&frames=200&clean=1' },
   { name: 'debug',   q: 'seed=7&frames=60&debug=1' },
+  // 車両の形の確認用: 自車の近くに各車種を並べる
+  { name: 'traffic', q: 'seed=7&frames=120&clean=1', extra: true, eval: `(() => { const d = window.__dbg, T = d.TYPES; d.cars.length = 0;
+      T.forEach((t, i) => { const c = d.newCar(1, i % 2, d.ego.s + 9 + i * 7, 19); c.type = t; c.l = t.l; c.v = d.ego.v; c.v0 = d.ego.v; });
+      const o = d.newCar(-1, 0, d.ego.s + 30, 20); o.type = T[0]; const o2 = d.newCar(-1, 1, d.ego.s + 55, 20); o2.type = T[4]; })()` },
+  // 街灯1本ぶんを通過する連続コマ（車内を流れる光の確認用）
+  ...[0, 1, 2, 3].map(i => ({ name: 'sweep' + i, q: 'seed=7&frames=' + (200 + i * 12), extra: true })),
 ];
 
 const only = opt('--only', null);
@@ -41,7 +47,7 @@ const browser = await puppeteer.launch({ executablePath: CHROME, headless: true,
   args: ['--window-size=1280,720', '--hide-scrollbars', '--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=default'] });
 try {
   for (const sc of SCENES) {
-    if (only && !only.split(',').includes(sc.name)) continue;
+    if (only ? !only.split(',').includes(sc.name) : sc.extra) continue;
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
     const errors = [];
@@ -49,7 +55,8 @@ try {
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     const t0 = Date.now();
     await page.goto(base + (base.includes('?') ? '&' : '?') + sc.q, { waitUntil: 'load' });
-    await page.waitForFunction('window.__ready===true', { timeout: 120000 });
+    await page.waitForFunction('window.__ready===true', { timeout: 60000 }).catch(e => { console.log(sc.name + ' FAILED: ' + errors.join(' | ')); throw e; });
+    if (sc.eval) await page.evaluate(sc.eval);
     const data = await page.evaluate(() => { window.__step(1); return document.getElementById('c').toDataURL('image/png'); });
     writeFileSync(resolve(outDir, sc.name + '.png'), Buffer.from(data.split(',')[1], 'base64'));
     console.log(`${sc.name}: ${Date.now() - t0}ms` + (errors.length ? `  ERRORS: ${errors.join(' | ')}` : ''));

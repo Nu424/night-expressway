@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { makeHalos, makePoints } from './points';
 import { sound } from '../audio/sound';
 import { CH, SPC, STEP, U } from '../core/globals';
 import { state } from '../core/state';
@@ -133,14 +134,18 @@ export function buildChunk(ci){
     }
     add(inst(bay?GEO.lampPostDouble:GEO.lampPost,MAT.metal,posts));
     add(inst(GEO.lampHead,MAT.lampHead[sec.lamp],heads));
+    // 灯具のまわりの光のにじみ（霞の中の光芒）
+    if(heads.length){ const hp=[],hc=[]; const c=sec.col; const pv=new THREE.Vector3();
+      for(const M of heads){ pv.setFromMatrixPosition(M); hp.push(pv.x,pv.y-0.15,pv.z); hc.push(c[0]*0.5,c[1]*0.5,c[2]*0.5); }
+      g.add(makeHalos(hp,hc,3.4)); }
     // delineators (white on left edge, orange on median side)
     const dl=[],dc=[];
     for(let k=0;k<SPC;k+=5){ const a=S(i0+k);
-      dl.push(propM(a,-9.55,ph-0.25,0.06,0.1,0.1).clone()); dc.push([1.0,1.0,0.95]);
-      dl.push(propM(a,-0.42,0.62,0.06,0.1,0.1).clone()); dc.push([1.0,0.45,0.05]);
-      dl.push(propM(a,9.55,ph-0.25,0.06,0.1,0.1).clone()); dc.push([1.0,1.0,0.95]);
+      dl.push(propM(a,-9.57,ph-0.25,0.045,0.045,0.045).clone()); dc.push([1.0,1.0,0.95]);
+      dl.push(propM(a,-0.42,0.62,0.045,0.045,0.045).clone()); dc.push([1.0,0.45,0.05]);
+      dl.push(propM(a,9.57,ph-0.25,0.045,0.045,0.045).clone()); dc.push([1.0,1.0,0.95]);
     }
-    add(inst(GEO.dot,MAT.reflector,dl,dc));
+    add(inst(GEO.sphere,MAT.reflector,dl,dc));
     // expansion joints
     const jsp=bay?100:40, jt=[];
     for(let k=Math.ceil(s0/jsp);k*jsp<s0+CH;k++){ const a=S(Math.round(k*jsp/STEP)); if(a.y>4) jt.push(propM(a,0,0.012,19.2,0.02,0.32).clone()); }

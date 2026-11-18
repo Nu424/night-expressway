@@ -1,11 +1,7 @@
 import * as THREE from 'three';
 import { LANES, LANES_OPP, U } from '../core/globals';
 import { R, V3, clamp, lerp, pick, rr, sstep } from '../core/util';
-import { camera, scene } from '../render/renderer';
-import { _e, _q, unitBox } from '../world/geometry';
-import { lightAt } from '../world/lighting';
 import { frameAt, secAt } from '../world/path';
-import { pointsMat } from '../world/points';
 
 export const TYPES=[
   {k:'sedan',w:1.78,h:1.45,l:4.7,p:0.32},{k:'compact',w:1.48,h:1.62,l:3.4,p:0.15},{k:'minivan',w:1.8,h:1.9,l:4.8,p:0.15},
@@ -14,25 +10,6 @@ export const PAINTS=[[0.72,0.72,0.7],[0.75,0.74,0.72],[0.02,0.02,0.022],[0.03,0.
 export const MAXCARS=64;
 export const cars=[];
 export const ego:any={s:60,v:19,v0:19.5,lane:0,u:LANES[0],lc:-1,lcFrom:0,signal:0,signalT:0,lastLC:0,isEgo:true,dir:1,l:4.6,acc:0,brake:0,v0t:0};
-export let carMeshes;
-export function makeTraffic(){
-  const bodyGeo=unitBox.clone();
-  const nv=bodyGeo.attributes.position.count; const cols=new Float32Array(nv*3); const nr=bodyGeo.attributes.normal;
-  for(let i=0;i<nv;i++){const ny=nr.getY(i), nz=nr.getZ(i); const k= ny>0.5?1.0: ny<-0.5?0.1: nz>0.5?0.55: nz<-0.5?0.7:0.62; cols[i*3]=cols[i*3+1]=cols[i*3+2]=k;}
-  bodyGeo.setAttribute('color',new THREE.BufferAttribute(cols,3));
-  const bodyMat=new THREE.MeshBasicMaterial({vertexColors:true});
-  const glassMat=new THREE.MeshBasicMaterial({vertexColors:true});
-  const lightMat=new THREE.MeshBasicMaterial({color:0xffffff});
-  const tailGeo=new THREE.PlaneGeometry(1,1);
-  const headGeo=new THREE.PlaneGeometry(1,1).rotateY(Math.PI);
-  const mk=(g,m,n)=>{const im=new THREE.InstancedMesh(g,m,n);im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.count=0;im.frustumCulled=false;im.setColorAt(0,new THREE.Color());scene.add(im);return im;};
-  carMeshes={body:mk(bodyGeo,bodyMat,MAXCARS*2),glass:mk(bodyGeo,glassMat,MAXCARS),tail:mk(tailGeo,lightMat,MAXCARS*2),head:mk(headGeo,lightMat,MAXCARS*2),glow:mk(unitBox,lightMat,MAXCARS*2)};
-  const pg=new THREE.BufferGeometry();
-  pg.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(MAXCARS*12*3),3));
-  pg.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(MAXCARS*12*3),3));
-  pg.setAttribute('size',new THREE.Float32BufferAttribute(new Float32Array(MAXCARS*12),1));
-  carMeshes.points=new THREE.Points(pg,pointsMat(false)); carMeshes.points.frustumCulled=false; scene.add(carMeshes.points);
-}
 export function newCar(dir,lane,s,v0){
   let r=R(),t=TYPES[0]; for(const T of TYPES){ if(r<T.p){t=T;break;} r-=T.p; }
   const c={dir,lane,s,v:v0,v0,type:t,l:t.l,u:dir>0?LANES[lane]:LANES_OPP[lane],lc:-1,lcFrom:lane,brake:0,acc:0,
@@ -132,59 +109,3 @@ export function updateTraffic(dt){
     }
   }
 }
-export const _mc=new THREE.Matrix4(),_ml=new THREE.Matrix4(),_qc=new THREE.Quaternion(),_col=new THREE.Color(),_pc=new V3(),_v1=new V3(),_v2=new V3();
-export function renderTraffic(){
-  const M=carMeshes; let nb=0,ng=0,nt=0,nh=0,nw=0,np=0;
-  const ppos=M.points.geometry.attributes.position.array, pcol=M.points.geometry.attributes.color.array, psz=M.points.geometry.attributes.size.array;
-  const camP=camera.position;
-  const put=(mesh,n,ox,oy,oz,sx,sy,sz,r,g,b)=>{ _ml.compose(_v1.set(ox,oy,oz),_q.identity(),_v2.set(sx,sy,sz)); mesh.setMatrixAt(n,_mc.clone().multiply(_ml)); mesh.setColorAt(n,_col.setRGB(r,g,b)); };
-  const addPt=(lx,ly,lz,r,g,b,sz)=>{ _v1.set(lx,ly,lz).applyMatrix4(_mc); ppos[np*3]=_v1.x;ppos[np*3+1]=_v1.y;ppos[np*3+2]=_v1.z; pcol[np*3]=r;pcol[np*3+1]=g;pcol[np*3+2]=b; psz[np]=sz; np++; };
-  for(const c of cars){
-    if(Math.abs(c.s-ego.s)>1500) continue;
-    const f=frameAt(c.s,_f2);
-    const x=f.x+f.rx*c.u, z=f.z+f.rz*c.u, y=f.y;
-    const yaw=-f.h+(c.dir<0?Math.PI:0), pitch=Math.atan(f.slope)*(c.dir);
-    _qc.setFromEuler(_e.set(pitch,yaw,0,'YXZ'));
-    _mc.compose(_pc.set(x,y,z),_qc,_v2.set(1,1,1));
-    const L=lightAt(c.s,c.u,1.4); const lum=0.12+0.6*Math.min(2,(L[0]+L[1]+L[2])/3);
-    const t=c.type, w=t.w, h=t.h, l=t.l, p=c.paint;
-    const lr=Math.min(1.6,L[0]*0.6+0.12),lg=Math.min(1.6,L[1]*0.6+0.12),lb=Math.min(1.6,L[2]*0.6+0.13);
-    if(t.k==='truck'){
-      put(M.body,nb++,0,0.35,-l/2+1.05,w*0.96,2.5,2.1,c.cab[0]*lr,c.cab[1]*lg,c.cab[2]*lb);
-      put(M.body,nb++,0,0.55,1.0,w,h-0.55,l-2.2,p[0]*lr,p[1]*lg,p[2]*lb);
-      put(M.glass,ng++,0,1.75,-l/2+0.02,w*0.88,0.95,0.12,0.03*lr+0.01,0.035*lg+0.01,0.04*lb+0.012);
-    } else if(t.k==='bus'){
-      put(M.body,nb++,0,0.35,0,w,h-0.35,l,p[0]*lr,p[1]*lg,p[2]*lb);
-      put(M.glow,nw++,0,1.6,0,w+0.02,0.9,l*0.86,0.9,0.75,0.55);
-    } else {
-      const lowH=h*0.52;
-      put(M.body,nb++,0,0.22,0,w,lowH-0.22,l,p[0]*lr,p[1]*lg,p[2]*lb);
-      const cabL = t.k==='minivan'||t.k==='van'? l*0.78 : t.k==='compact'? l*0.66 : l*0.52;
-      const cabZ = t.k==='minivan'||t.k==='van'? l*0.08 : l*0.04;
-      put(M.glass,ng++,0,lowH,cabZ,w*0.88,h-lowH,cabL,0.025*lr+0.006,0.03*lg+0.008,0.036*lb+0.01);
-      if(t.k==='taxi') put(M.glow,nw++,0,h,0.1,0.45,0.18,0.22,2.4,1.6,0.7);
-    }
-    // lights
-    const tailY= t.k==='truck'||t.k==='bus'?0.95:lowHf(t)*0.85, tw=w*0.2, th= t.k==='truck'?0.16:0.11;
-    const bk=c.brake>0.5?1:0;
-    const tr=bk?9:3.6, tg=bk?0.28:0.1, tb=bk?0.12:0.05;
-    const toCam=_v1.set(camP.x-x,camP.y-y,camP.z-z); const fwdx=Math.sin(-yaw)*-1; // unused
-    const fx=-Math.sin(yaw), fz=-Math.cos(yaw);
-    const front = (toCam.x*fx+toCam.z*fz)>0;
-    put(M.tail,nt++,-w*0.36,tailY,l/2+0.02,tw,th,1,tr,tg,tb);
-    put(M.tail,nt++,w*0.36,tailY,l/2+0.02,tw,th,1,tr,tg,tb);
-    const hy= t.k==='truck'||t.k==='bus'?0.8:0.62;
-    put(M.head,nh++,-w*0.34,hy,-l/2-0.02,w*0.2,0.12,1,6,6,5.6);
-    put(M.head,nh++,w*0.34,hy,-l/2-0.02,w*0.2,0.12,1,6,6,5.6);
-    const dist=Math.hypot(toCam.x,toCam.y,toCam.z);
-    const near=sstep(15,50,dist);
-    if(front){ const k=c.dir<0?1:0.25; addPt(-w*0.34,hy,-l/2-0.3,2.2*k,2.2*k,2.0*k,c.dir<0?7:4); addPt(w*0.34,hy,-l/2-0.3,2.2*k,2.2*k,2.0*k,c.dir<0?7:4); }
-    else { const k=near*(bk?2.2:1); addPt(-w*0.36,tailY,l/2+0.2,1.0*k,0.05*k,0.02*k,3.2); addPt(w*0.36,tailY,l/2+0.2,1.0*k,0.05*k,0.02*k,3.2); }
-    if(t.k==='truck'){ for(let k=0;k<4;k++){ const zz=-l/2+2.5+k*(l-3)/3; for(const sx of [-1,1]) addPt(sx*w*0.51,0.5,zz,0.9,0.42,0.05,1.8);} addPt(-w*0.45,h,l/2,0.9,0.4,0.05,2); addPt(w*0.45,h,l/2,0.9,0.4,0.05,2); }
-  }
-  for(const k of ['body','glass','tail','head','glow']){ M[k].count={body:nb,glass:ng,tail:nt,head:nh,glow:nw}[k]; M[k].instanceMatrix.needsUpdate=true; if(M[k].instanceColor) M[k].instanceColor.needsUpdate=true; }
-  for(let i=np;i<MAXCARS*12;i++){ psz[i]=0; pcol[i*3]=pcol[i*3+1]=pcol[i*3+2]=0; }
-  M.points.geometry.setDrawRange(0,np);
-  M.points.geometry.attributes.position.needsUpdate=true; M.points.geometry.attributes.color.needsUpdate=true; M.points.geometry.attributes.size.needsUpdate=true;
-}
-export function lowHf(t){ return t.h*0.52; }
