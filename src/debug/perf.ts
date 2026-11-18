@@ -4,7 +4,11 @@ const frameMs = new Float32Array(N);   // フレーム間隔（表示の滑ら�
 const cpuMs = new Float32Array(N);     // update+render にかかった時間
 let fi = 0, fn = 0, ci = 0, lastFrame = 0;
 
+const marks: Record<string, number> = {}; let markT = 0;
 export const perf = {
+  /** 直前の mark からの経過を name に積む（指数移動平均）。フレーム内の内訳を見るためのもの。 */
+  mark(name: string) { const n = performance.now(); if (name) marks[name] = (marks[name] ?? 0) * 0.97 + (n - markT) * 0.03; markT = n; },
+  marks,
   chunkLast: 0, chunkMax: 0, chunkCount: 0, hitches: 0, frames: 0,
   frame(nowMs: number) {
     if (lastFrame) { const d = nowMs - lastFrame; frameMs[fi] = d; fi = (fi + 1) % N; fn = Math.min(N, fn + 1); this.frames++; if (d > 33.4) this.hitches++; }

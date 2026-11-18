@@ -20,11 +20,11 @@ try {
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto(server.resolvedUrls.local[0] + '?' + q, { waitUntil: 'load' });
   await page.waitForFunction('!document.getElementById("go").disabled', { timeout: 120000 });
-  await page.click('#go');
+  if (!args.includes('--noaudio')) await page.click('#go');   // --noaudio: 出発ボタンを押さず、音を起動しない状態で測る
   await new Promise(r => setTimeout(r, 3000));
   await page.evaluate(() => window.__perf.reset());
   await new Promise(r => setTimeout(r, sec * 1000));
-  const out = await page.evaluate(() => ({ perf: window.__perf.stats(), scale: window.__dbg.autoscale.scale, gpuMs: window.__dbg.autoscale.gpuMs, timer: window.__dbg.autoscale.hasGpuTimer, km: window.__dbg.ego.s / 1000,
+  const out = await page.evaluate(() => ({ marks: window.__perf.marks, perf: window.__perf.stats(), scale: window.__dbg.autoscale.scale, gpuMs: window.__dbg.autoscale.gpuMs, timer: window.__dbg.autoscale.hasGpuTimer, km: window.__dbg.ego.s / 1000,
     gpu: (() => { const gl = window.__dbg.renderer.getContext(); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; })(),
     calls: window.__dbg.renderer.info.render.calls, tris: window.__dbg.renderer.info.render.triangles }));
   const s = out.perf, f = v => v.toFixed(1);
@@ -34,5 +34,6 @@ try {
   console.log(`FPS ${f(s.fps)}  フレーム間隔 avg ${f(s.avg)} p50 ${f(s.p50)} p99 ${f(s.p99)} max ${f(s.max)} ms（直近600フレーム）`);
   console.log(`処理時間 avg ${f(s.cpuAvg)} max ${f(s.cpuMax)} ms  33ms超 ${s.hitches}/${s.frames} フレーム`);
   console.log(`チャンク生成 max ${f(s.chunkMax)} ms (${s.chunkCount} 個)`);
+  console.log('内訳(ms): ' + Object.entries(out.marks).map(([k, v]) => `${k} ${v.toFixed(2)}`).join('  '));
   if (errors.length) console.log('ERRORS:', errors.join(' | '));
 } finally { await browser.close(); await new Promise(r => server.httpServer.close(r)); }

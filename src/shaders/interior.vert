@@ -5,7 +5,7 @@
 #define NL 6
 uniform vec3 uLampPos[NL];   // 車体座標（原点=運転者の目、-z が前）
 uniform vec3 uLampCol[NL];   // 色×照度
-uniform float uOutside;
+uniform float uOutside; uniform mat4 uCar;
 varying vec3 vP; varying vec3 vN; varying vec2 vUv; varying vec3 vLit;
 
 float band(float x,float a,float b,float s){ return smoothstep(a-s,a+s,x)*(1.0-smoothstep(b-s,b+s,x)); }
@@ -25,8 +25,8 @@ float aperture(vec3 p,vec3 L){
 }
 
 void main(){
-  // 車内はカメラの子なので、視点座標がそのまま車体座標になる
-  vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz; vN=normalize(normalMatrix*normal); vUv=uv;
+  // 車内はカメラの子。視点座標に uCar を掛けると車体座標（運転者の目が原点）になる
+  vec4 mv=modelViewMatrix*vec4(position,1.0); vP=(uCar*mv).xyz; vN=normalize(mat3(uCar)*normalMatrix*normal); vUv=uv;
   vec3 lit=vec3(0.0);
   if(uOutside<0.5){
     for(int i=0;i<NL;i++){

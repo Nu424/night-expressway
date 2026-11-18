@@ -37,7 +37,7 @@ export function setDebug(on){
   dbg.on=on; dbg.group.visible=on; document.body.classList.toggle('debug',on);
   dbg.el.style.display=on?'block':'none';
   document.getElementById('bDebug').textContent=on?'運転席へ':'俯瞰';
-  interiorPass.enabled= !on && state.view==='interior';
+  interiorPass.enabled= !on && state.view!=='clean';
   headlight.intensity=on?0:140;
   if(on) clearDrops();
 }

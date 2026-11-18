@@ -7,7 +7,7 @@ import { updateCamera } from './car/camera';
 import { icam, iscene, makeInterior, mirrorRT, rearCam, updateInterior } from './car/interior';
 import { AHEAD, BEHIND, CH, FOG_COLOR, U } from './core/globals';
 import { settings } from './core/settings';
-import { dbg, state } from './core/state';
+import { camState, dbg, state } from './core/state';
 import { perf, togglePerf, updatePerfHud } from './debug/perf';
 import { clamp, lerp, params, rr } from './core/util';
 import { makeDebug, setDebug, updateDebug } from './debug/birdseye';
@@ -39,7 +39,7 @@ let lastSecId=-1;
 export let waterNear=false, lastWaterS=-1e9;
 export const sameDirPrev=new Map();
 export function update(dt){
-  U.time.value+=dt;
+  U.time.value+=dt; perf.mark('');
   const t=U.time.value;
   ensurePath(ego.s+AHEAD+1100);
   // chunks
@@ -49,8 +49,9 @@ export function update(dt){
   for(const [ci,c] of chunks){ if(ci<cA||ci>cB+1){ disposeChunk(c); chunks.delete(ci); } else for(const m of c.appearMats){ m.uniforms.uAppear.value=Math.min(1,(t-c.born)/2.5); } }
   trimPath(ego.s-1200);
   // traffic & ego
+  perf.mark('chunks');
   const prevS=ego.s;
-  updateTraffic(dt);
+  updateTraffic(dt); perf.mark('traffic');
   const f=frameAt(ego.s,_f);
   // joints
   const jsp=f.sec.type==='bay'?100:40;
@@ -85,7 +86,7 @@ export function update(dt){
   // スリープタイマー: 最後の3分で音と画面をゆっくり落とす
   if(state.sleepEnd>0){ const remain=(state.sleepEnd-performance.now())/1000; state.sleepFade=clamp(1-remain/180,0,1); }
   else state.sleepFade+=(0-state.sleepFade)*(1-Math.exp(-dt*2));
-  if(Math.abs(state.sleepFade-sleepShown)>0.002){ sleepShown=state.sleepFade; sleepVeil.style.opacity=String(Math.pow(sleepShown,1.4)); sound.setDuck(1-sleepShown);
+  if(Math.abs(state.sleepFade-sleepShown)>0.002){ sleepShown=state.sleepFade; sleepVeil.style.display= sleepShown>0.003?'block':'none'; sleepVeil.style.opacity=String(Math.pow(sleepShown,1.4)); sound.setDuck(1-sleepShown);
     sleepVeil.style.pointerEvents= sleepShown>0.5?'auto':'none'; }
   // 目の順応: 明るい場所（トンネル内など）ではゆっくり絞り、暗い場所では開く
   { const La=lightAt(ego.s,ego.u,1.4); const lum=(La[0]+La[1]+La[2])/3;
@@ -121,11 +122,11 @@ export function update(dt){
   const L0=lightAt(ego.s,ego.u,4); rainLines.material.uniforms.uLight.value.setRGB(0.05+L0[0]*0.12,0.05+L0[1]*0.12,0.06+L0[2]*0.12);
   rainLines.visible=state.rain>0.01;
   // 車内: 街灯の光とメーター
-  updateInterior(dt);
+  perf.mark('world'); updateInterior(dt); perf.mark('interior');
   if(f.sec.id!==lastSecId){ lastSecId=f.sec.id; const sc=f.sec;
     setRoadName(sc.type==='tunnel'?sc.name[0]: sc.type==='bay'?'湾港線 オーロラブリッジ':'C1 都芯環状線'); }
-  updateDrops(dt);
-  renderTraffic();
+  updateDrops(dt); perf.mark('drops');
+  renderTraffic(); perf.mark('cars');
   audioFrame({v:ego.v,acc:ego.acc,tunnel:state.tunnel,wet:state.wet,rain:state.rain*(1-state.tunnel),dt});
   // water / reflection points
   if(Math.abs(ego.s-lastWaterS)>60){ waterNear=waterPoints(); lastWaterS=ego.s; }
@@ -140,13 +141,13 @@ export function render(){
   if(useRefl && waterNear && camera.position.y>8){ U.reflWater.value=1; U.reflRoad.value=0; renderReflection(0.0); }
   else if(useRefl && state.wet>0.04 && !waterNear && !dbg.on){ U.reflWater.value=0; U.reflRoad.value=1; const f=frameAt(ego.s,_f2); renderReflection(f.y+0.02); }
   else { U.reflWater.value=0; U.reflRoad.value=0; }
-  if(state.view==='interior' && !dbg.on && !dbg.noMirror && quality!=='low' && settings.get<boolean>('gfx.mirror') && frameN%2===0){
+  if(state.view!=='clean' && !dbg.on && !dbg.noMirror && quality!=='low' && settings.get<boolean>('gfx.mirror') && frameN%2===0){
     const saved=U.reflRoad.value; U.reflRoad.value=0; rainLines.visible=false;
     renderer.setRenderTarget(mirrorRT); renderer.clear(); renderer.render(scene,rearCam); renderer.setRenderTarget(null);
     U.reflRoad.value=saved; rainLines.visible=state.rain>0.01;
   }
   finalU.uExposure.value=state.exposureBase*state.exposure;
-  renderFrame();
+  perf.mark('pre'); renderFrame(); perf.mark('render');
   gpuEnd();
 }
 export function resize(){
@@ -180,7 +181,7 @@ export async function boot(){
   if(params.has('clean')) setView('clean');
   if(params.has('debug')) setDebug(true);
   if(params.has('perf')) togglePerf(true);
-  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={radioNow:()=>radio?`${radio.station().name} / ${radio.title}`:'(未開始)',Radio,radioParams,Sound,THREE,iscene,TYPES,newCar,ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
+  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={camState,radioNow:()=>radio?`${radio.station().name} / ${radio.title}`:'(未開始)',Radio,radioParams,Sound,THREE,iscene,TYPES,newCar,ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
   const go=document.getElementById('go') as HTMLButtonElement; go.disabled=false; go.textContent='▶  出発';
   let last=performance.now()/1000;
   const loop=()=>{ requestAnimationFrame(loop); const nowMs=performance.now(); const now=nowMs/1000; perf.frame(nowMs); autoscaleTick((now-last)*1000); const dt=Math.min(0.05,now-last); last=now;

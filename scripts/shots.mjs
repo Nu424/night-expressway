@@ -27,6 +27,9 @@ export const SCENES = [
   { name: 'bay',     q: 'seed=7&frames=60&skip=7500' },
   { name: 'dashcam', q: 'seed=7&frames=200&clean=1' },
   { name: 'debug',   q: 'seed=7&frames=60&debug=1' },
+  // 視点の確認用
+  { name: 'passenger', q: 'seed=7&frames=200', extra: true, pre: `(() => { const d = window.__dbg; d.settings.set('view.mode', 'passenger', false); d.camState.seat = -0.38; })()` },
+  { name: 'side', q: 'seed=7&frames=200', extra: true, pre: `(() => { const d = window.__dbg; d.settings.set('view.mode', 'side', false); d.camState.seat = -0.38; d.camState.yaw = 1.28; })()` },
   // 夜明けの確認用
   { name: 'dawn', q: 'seed=7&frames=200', extra: true, eval: `(() => { const d = window.__dbg; d.state.dawnMode = 'dawn'; d.state.dawn = 0.75; })()` },
   { name: 'dawnbay', q: 'seed=7&frames=60&skip=7500&clean=1', extra: true, eval: `(() => { const d = window.__dbg; d.state.dawnMode = 'dawn'; d.state.dawn = 0.75; })()` },
@@ -59,6 +62,7 @@ try {
     const t0 = Date.now();
     await page.goto(base + (base.includes('?') ? '&' : '?') + sc.q, { waitUntil: 'load' });
     await page.waitForFunction('window.__ready===true', { timeout: 60000 }).catch(e => { console.log(sc.name + ' FAILED: ' + errors.join(' | ')); throw e; });
+    if (sc.pre) { await page.evaluate(sc.pre); await page.evaluate(() => window.__step(3)); }
     if (sc.eval) await page.evaluate(sc.eval);
     const data = await page.evaluate(() => { window.__step(1); return document.getElementById('c').toDataURL('image/png'); });
     writeFileSync(resolve(outDir, sc.name + '.png'), Buffer.from(data.split(',')[1], 'base64'));

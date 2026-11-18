@@ -1,5 +1,5 @@
 import { tune } from '../core/state';
-import { icam, rearCam } from './interior';
+import { rearCam, setHeadPose } from './interior';
 import { LANES, U } from '../core/globals';
 import { camState, dbg, state } from '../core/state';
 import { clamp, lerp , V3 } from '../core/util';
@@ -17,7 +17,11 @@ export function updateCamera(dt,f){
     rearCam.position.copy(camera.position); rearCam.updateMatrixWorld();
     return;
   }
-  const u=ego.u+0.38;
+  // 座席の移動と、見回しのあと正面へ戻る動き
+  camState.seat+=(camState.seatT-camState.seat)*(1-Math.exp(-dt*2.2));
+  if(U.time.value-camState.dragT>3.5){ const k=1-Math.exp(-dt*1.4); camState.yaw+=(camState.baseYaw-camState.yaw)*k; camState.pitch+=(camState.basePitch-camState.pitch)*k; }
+  const seat=camState.seat;
+  const u=ego.u+seat;
   const camY=f.y+1.22+state.bump;
   const px=f.x+f.rx*u, pz=f.z+f.rz*u;
   // head bob/noise
@@ -26,7 +30,7 @@ export function updateCamera(dt,f){
   camera.position.set(px+nx,camY+ny,pz);
   const la=10+ego.v*0.55;
   const f2=frameAt(ego.s+la,_f2);
-  const uT= ego.lc>=0? lerp(ego.u,LANES[ego.lane],0.5)+0.38 : u;
+  const uT= ego.lc>=0? lerp(ego.u,LANES[ego.lane],0.5)+seat : u;
   const tgt=_v1.set(f2.x+f2.rx*uT,f2.y+1.0,f2.z+f2.rz*uT);
   if(!camState.init){camState.look.copy(tgt);camState.init=true;}
   camState.look.lerp(tgt,1-Math.exp(-dt*6));
@@ -34,7 +38,9 @@ export function updateCamera(dt,f){
   camera.lookAt(camState.look);
   const k=(f2.h-f.h)/la; const rollT=clamp(-k*ego.v*ego.v*0.02,-0.025,0.025);
   camState.roll+= (rollT-camState.roll)*(1-Math.exp(-dt*2));
+  camera.rotateY(camState.yaw); camera.rotateX(camState.pitch);
   camera.rotateZ(camState.roll);
+  setHeadPose(camState.yaw,camState.pitch,seat-0.38);
   camera.updateMatrixWorld();
   // rear cam
   rearCam.position.set(f.x+f.rx*(ego.u-0.05),f.y+1.3,f.z+f.rz*(ego.u-0.05));

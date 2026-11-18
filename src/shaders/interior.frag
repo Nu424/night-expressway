@@ -6,7 +6,7 @@ uniform vec3 uAmb;           // 環境光（周囲の明るさの平均）
 uniform vec3 uBase; uniform float uSpec; uniform float uGloss; uniform float uOutside; uniform float uGrain;
 uniform vec3 uGlow;          // メーターの照り返し
 uniform sampler2D uMap; uniform float uUseMap; uniform float uEmissive;
-uniform float uWet;
+uniform float uWet; uniform vec3 uEye;
 varying vec3 vP; varying vec3 vN; varying vec2 vUv; varying vec3 vLit;
 
 float hash(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -20,7 +20,7 @@ void main(){
     col=base*(uAmb+vLit);
     if(uOutside>0.5){
       vec3 N=normalize(vN); if(!gl_FrontFacing) N=-N;
-      vec3 V=normalize(-vP);
+      vec3 V=normalize(uEye-vP);
       float spec=uSpec*(1.0+uWet*2.0);
       for(int i=0;i<NL;i++){
         vec3 Ld=normalize(uLampPos[i]-vP); float nl=max(dot(N,Ld),0.0);

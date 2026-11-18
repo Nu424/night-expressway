@@ -1,7 +1,8 @@
 import { sound, startAudio } from '../audio/index';
 import { settings } from '../core/settings';
-import { dbg, state } from '../core/state';
-import { rr } from '../core/util';
+import { camState, dbg, state } from '../core/state';
+import { U } from '../core/globals';
+import { clamp, rr } from '../core/util';
 import { setDebug } from '../debug/birdseye';
 import { togglePerf } from '../debug/perf';
 import { resize } from '../main';
@@ -28,11 +29,13 @@ settings.define<string>({
 });
 settings.define<string>({
   id: 'view.mode', label: '視点', group: 'DRIVE/視点', type: 'select', default: 'interior', order: -1,
-  options: [{ value: 'interior', label: '車内' }, { value: 'clean', label: 'ダッシュカム' }],
+  options: [{ value: 'interior', label: '運転席' }, { value: 'passenger', label: '助手席' }, { value: 'side', label: '助手席の窓' }, { value: 'clean', label: 'ダッシュカム' }],
   apply: v => {
-    state.view = v; interiorPass.enabled = v === 'interior' && !dbg.on;
+    state.view = v; interiorPass.enabled = v !== 'clean' && !dbg.on;
     $('bView').textContent = '視点: ' + optLabel('view.mode', v);
-    if (v !== 'interior') clearDrops();
+    camState.seatT = v === 'passenger' || v === 'side' ? -0.38 : 0.38;
+    camState.baseYaw = v === 'side' ? 1.28 : 0; camState.basePitch = v === 'side' ? 0.13 : 0; camState.dragT = -99;
+    if (v === 'clean') { clearDrops(); camState.yaw = camState.pitch = 0; }
   },
 });
 settings.define<string>({
@@ -108,3 +111,11 @@ addEventListener('keydown', e => {
 // スリープで暗転したあとは、画面を押すかキーを押すと再開する
 const wake = () => { if (settings.get<string>('trip.sleep') !== '0' && (document.getElementById('sleepVeil') as HTMLElement).style.pointerEvents === 'auto') settings.set('trip.sleep', '0'); };
 document.getElementById('sleepVeil')!.addEventListener('pointerdown', wake); addEventListener('keydown', wake);
+
+// ドラッグで見回す。離して数秒たつと、ゆっくり正面へ戻る。
+{ const cv = document.getElementById('c')!; let drag: { x: number; y: number } | null = null;
+  cv.addEventListener('pointerdown', e => { if (dbg.on || state.view === 'clean') return; drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e => { if (!drag || dbg.on) return;
+    camState.yaw = clamp(camState.yaw + (e.clientX - drag.x) * 0.0032, -2.6, 2.6); camState.pitch = clamp(camState.pitch + (e.clientY - drag.y) * 0.0026, -0.5, 0.45);
+    drag = { x: e.clientX, y: e.clientY }; camState.dragT = U.time.value; });
+  const end = () => { drag = null; }; cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); }

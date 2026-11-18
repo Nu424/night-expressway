@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { sound } from '../audio/sound';
-import { dbg, state, tune } from '../core/state';
+import { camState, dbg, state, tune } from '../core/state';
 import { R, lerp, rr, sstep } from '../core/util';
 import { dropsCtx, dropsPass, dropsTex } from '../render/post';
 import { ego } from '../traffic/traffic';
@@ -16,7 +16,7 @@ export function wiperAngle(ph){ // phase 0..1 → angle (rad, math coords, y up)
 }
 export function updateDrops(dt){
   const amt=state.rain;
-  if(amt>0.02 && state.view==='interior' && state.tunnel<0.5 && !dbg.on){
+  if(amt>0.02 && state.view!=='clean' && state.tunnel<0.5 && !dbg.on){
     const rate=amt*110*(0.5+ego.v/30)*tune.drops;
     let n=rate*dt; while(n>0){ if(R()<n) drops.push({x:R()*640,y:R()*360,r:rr(1.2,4.8)*(R()<0.08?1.8:1),life:0,max:rr(2.5,6.5)}); n-=1; }
   }
@@ -44,6 +44,7 @@ export function updateDrops(dt){
   for(let k=0;k<2;k++){
     const pa=state.wiperAng[k], na=ang; state.wiperAng[k]=na;
     if(Math.abs(pa-na)>1e-5){
+      if(Math.abs(camState.yaw)>0.5) continue;
       const lo=Math.min(pa,na)-0.03, hi=Math.max(pa,na)+0.03; wiped.push([k,lo,hi]);
       drops=drops.filter(d=>{ const dx=d.x-PIV[k][0], dy=PIV[k][1]-d.y; const r=Math.hypot(dx,dy), a=Math.atan2(dy,dx); return !(r>BL[k][0]&&r<BL[k][1]&&a>=lo&&a<=hi); });
     }
@@ -68,7 +69,9 @@ export function updateDrops(dt){
   dropsPass.uniforms.uW1.value.copy(seg(0)); dropsPass.uniforms.uW2.value.copy(seg(1));
   { const a=toUV(PIV[0][0],PIV[0][1]), b=toUV(PIV[1][0],PIV[1][1]); dropsPass.uniforms.uP1.value.set(a[0],a[1]); dropsPass.uniforms.uP2.value.set(b[0],b[1]); }
   dropsPass.uniforms.uAspect.value=asp;
-  dropsPass.uniforms.uWipe.value= (state.view==='interior' && !dbg.on && (state.wiperPhase>0.001 && state.wiperPhase<0.999))?1:0;
+  // ワイパーはフロントガラスのもの。横や後ろを向いているときは描かない。
+  const frontal= state.view!=='clean' && Math.abs(camState.yaw)<0.5;
+  dropsPass.uniforms.uWipe.value= (frontal && !dbg.on && (state.wiperPhase>0.001 && state.wiperPhase<0.999))?1:0;
   dropsPass.uniforms.uAmt.value= !dbg.on&&(drops.length>0||state.rain>0.01) ? 1:0;
   dropsPass.uniforms.uFilm.value= state.rain*0.25*(state.tunnel<0.5?1:0);
 }

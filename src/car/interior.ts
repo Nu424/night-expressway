@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { U } from '../core/globals';
 import { state } from '../core/state';
 import { FONT, V3, clamp, lerp, sstep } from '../core/util';
-import { camera, scene } from '../render/renderer';
+import { camera, carRig, scene } from '../render/renderer';
 import { ego } from '../traffic/traffic';
 import { lightAt } from '../world/lighting';
 import { lampsNear } from '../world/lamps';
@@ -21,7 +21,9 @@ export let mirrorMesh: THREE.Mesh, mirrorRT: THREE.WebGLRenderTarget, rearCam: T
 const NL = 6;
 const lampPos = Array.from({ length: NL }, () => new V3(0, 50, -50));
 const lampCol = Array.from({ length: NL }, () => new V3());
-const shared = { uLampPos: { value: lampPos }, uLampCol: { value: lampCol }, uAmb: { value: new V3(0.02, 0.02, 0.025) }, uGlow: { value: new V3() }, uWet: U.wet };
+/** カメラ座標 → 車体座標（運転者の目が原点）。頭を回したり座席を移っても、車内は車体に固定される。 */
+const carMat = new THREE.Matrix4();
+const shared = { uCar: { value: carMat }, uEye: { value: new V3() }, uLampPos: { value: lampPos }, uLampCol: { value: lampCol }, uAmb: { value: new V3(0.02, 0.02, 0.025) }, uGlow: { value: new V3() }, uWet: U.wet };
 
 /** 車内の見た目の調整値（設定から変更する） */
 export const cabin = { meterColor: 'amber' as 'amber' | 'ice' | 'green', meterGain: 1, sweep: 1, ambient: 1, unitLines: ['', ''] as string[] };
@@ -132,7 +134,14 @@ export function makeInterior() {
 
   drawCluster(0, false, 0); drawUnit();
   // ミラーや反射用のカメラには映さない（レイヤー1は主カメラだけが見る）
-  iscene.traverse(o => o.layers.set(1)); camera.layers.enable(1); camera.add(iscene);
+  // 左右のドア（窓の下端）と B ピラー、屋根の縁。横を向いたときに見える。
+  for (const x of [-1.2, 0.63]) {
+    add(new THREE.BoxGeometry(0.07, 0.95, 2.3), trim, [x, -0.63, -0.1]);
+    add(new THREE.BoxGeometry(0.1, 0.03, 2.3), piano, [x + (x < 0 ? 0.02 : -0.02), -0.145, -0.1]);
+    beam([x, -0.16, 0.36], [x + (x < 0 ? 0.08 : -0.07), 0.5, 0.4], 0.06, 0.12, trim);
+    add(new THREE.BoxGeometry(0.1, 0.05, 2.0), trim, [x + (x < 0 ? 0.1 : -0.09), 0.49, 0.3]);
+  }
+  iscene.traverse(o => o.layers.set(1)); camera.layers.enable(1); camera.add(iscene); iscene.matrixAutoUpdate = false;
 }
 
 /* ---------------- メーターの描画 ---------------- */
@@ -187,7 +196,7 @@ export function updateInterior(dt: number) {
   // 近くの照明を車体座標へ移し、照度の大きい順に NL 個を光源として渡す
   const lamps = lampsNear(ego.s); cand.length = 0;
   for (const L of lamps) {
-    _lp.set(L.x, L.y, L.z).applyMatrix4(camera.matrixWorldInverse);       // カメラ座標 = 車体座標
+    _lp.set(L.x, L.y, L.z).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(carMat);   // ワールド → カメラ → 車体座標
     const e = Math.min(L.I * 1.25, L.I * L.h * L.h * L.h / Math.pow(_lp.lengthSq() + 1, 1.5));
     if (e > 0.004) cand.push({ e, x: _lp.x, y: _lp.y, z: _lp.z, c: L.col });
   }
@@ -212,4 +221,14 @@ export function updateInterior(dt: number) {
   }
   const key = cabin.unitLines.join('|') + min + cabin.meterColor + Math.floor(U.time.value / 2);
   if (key !== shownKey) { drawUnit(); shownKey = key; }
+}
+
+const _hq = new THREE.Quaternion(), _he = new THREE.Euler(), _hm = new THREE.Matrix4();
+/** 頭の向き（yaw, pitch）と座席の左右位置（運転席からのずれ, m）を伝える。車内はその逆変換で車体に固定する。 */
+export function setHeadPose(yaw: number, pitch: number, seatShift: number) {
+  _hq.setFromEuler(_he.set(pitch, yaw, 0, 'YXZ'));
+  carMat.makeRotationFromQuaternion(_hq); carMat.setPosition(seatShift, 0, 0);     // 車体座標 = 回転(頭) × カメラ座標 + 座席のずれ
+  iscene.matrix.copy(_hm.copy(carMat).invert()); iscene.matrixWorldNeedsUpdate = true;
+  carRig.matrix.copy(iscene.matrix); carRig.matrixWorldNeedsUpdate = true;
+  shared.uEye.value.set(seatShift, 0, 0);
 }
