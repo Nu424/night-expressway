@@ -3,8 +3,9 @@ import { FOG_COLOR, FOG_DENS, U } from '../core/globals';
 
 export const canvas=document.getElementById('c');
 export const renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance',stencil:false});
-export let quality='high';
-export function setQuality(q){ quality=q; PR= q==='high'?Math.min(window.devicePixelRatio||1,1.5):1; }
+/** 'auto' = 自動解像度 / 'high' = 100%固定 / 'low' = 軽量（60%・反射とミラーなし） */
+export let quality='auto';
+export function setQuality(q){ quality=q; }
 export let PR=Math.min(window.devicePixelRatio||1,1.5);
 renderer.setPixelRatio(PR);
 renderer.setSize(innerWidth,innerHeight);

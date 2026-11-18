@@ -24,11 +24,12 @@ try {
   await new Promise(r => setTimeout(r, 3000));
   await page.evaluate(() => window.__perf.reset());
   await new Promise(r => setTimeout(r, sec * 1000));
-  const out = await page.evaluate(() => ({ perf: window.__perf.stats(), km: window.__dbg.ego.s / 1000,
+  const out = await page.evaluate(() => ({ perf: window.__perf.stats(), scale: window.__dbg.autoscale.scale, gpuMs: window.__dbg.autoscale.gpuMs, timer: window.__dbg.autoscale.hasGpuTimer, km: window.__dbg.ego.s / 1000,
     gpu: (() => { const gl = window.__dbg.renderer.getContext(); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; })(),
     calls: window.__dbg.renderer.info.render.calls, tris: window.__dbg.renderer.info.render.triangles }));
   const s = out.perf, f = v => v.toFixed(1);
   console.log(`GPU: ${out.gpu}`);
+  console.log(`内部解像度 ${Math.round(out.scale * 100)}%  GPU時間 ${out.timer ? out.gpuMs.toFixed(1) + ' ms' : '計測不可'}`);
   console.log(`1920x1080 / ${sec}s / ${q} / 走行 ${out.km.toFixed(2)} km`);
   console.log(`FPS ${f(s.fps)}  フレーム間隔 avg ${f(s.avg)} p50 ${f(s.p50)} p99 ${f(s.p99)} max ${f(s.max)} ms（直近600フレーム）`);
   console.log(`処理時間 avg ${f(s.cpuAvg)} max ${f(s.cpuMax)} ms  33ms超 ${s.hitches}/${s.frames} フレーム`);

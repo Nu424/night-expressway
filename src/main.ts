@@ -8,11 +8,12 @@ import { dbg, state } from './core/state';
 import { perf, togglePerf, updatePerfHud } from './debug/perf';
 import { params, rr } from './core/util';
 import { makeDebug, setDebug, updateDebug } from './debug/birdseye';
-import { composer, gradePass, makePost } from './render/post';
+import { autoscale, autoscaleTick, gpuBegin, gpuEnd, initAutoscale, loadHint } from './render/autoscale';
+import { finalU, interiorPass, makePost, post, renderFrame, resizePost } from './render/post';
 import { makeReflRT, reflRT, renderReflection } from './render/reflection';
 import { PR, camera, quality, renderer, scene } from './render/renderer';
 import { _f, _f2, _v2, cars, ego, makeTraffic, newCar, renderTraffic, updateTraffic } from './traffic/traffic';
-import { setView } from './ui/controls';
+import { applyAA, setView } from './ui/controls';
 import { updateDrops } from './weather/drops';
 import { makeRain, rainDisp, rainLines } from './weather/rain';
 import { updateWeather } from './weather/weather';
@@ -103,26 +104,26 @@ export function update(dt){
 }
 export function render(){
   frameN++;
-  const useRefl = quality==='high';
+  gpuBegin();
+  const useRefl = quality!=='low' && settings.get<boolean>('gfx.reflect');
   if(useRefl && waterNear && camera.position.y>8){ U.reflWater.value=1; U.reflRoad.value=0; renderReflection(0.0); }
   else if(useRefl && state.wet>0.04 && !waterNear && !dbg.on){ U.reflWater.value=0; U.reflRoad.value=1; const f=frameAt(ego.s,_f2); renderReflection(f.y+0.02); }
   else { U.reflWater.value=0; U.reflRoad.value=0; }
-  if(state.view==='interior' && !dbg.on && quality==='high' && frameN%2===0){
+  if(state.view==='interior' && !dbg.on && !dbg.noMirror && quality!=='low' && settings.get<boolean>('gfx.mirror') && frameN%2===0){
     const saved=U.reflRoad.value; U.reflRoad.value=0; rainLines.visible=false;
     renderer.setRenderTarget(mirrorRT); renderer.clear(); renderer.render(scene,rearCam); renderer.setRenderTarget(null);
     U.reflRoad.value=saved; rainLines.visible=state.rain>0.01;
   }
-  gradePass.uniforms.uTime.value=U.time.value;
-  composer.render();
+  renderFrame();
+  gpuEnd();
 }
 export function resize(){
   const w=innerWidth,h=innerHeight;
   renderer.setPixelRatio(PR); renderer.setSize(w,h);
   camera.aspect=w/h; camera.updateProjectionMatrix(); icam.aspect=w/h; icam.updateProjectionMatrix();
-  if(composer){ composer.setPixelRatio(PR); composer.setSize(w,h); }
-  if(reflRT) reflRT.setSize(Math.round(w*PR*0.5),Math.round(h*PR*0.5));
-  if(gradePass) gradePass.uniforms.uRes.value.set(w*PR,h*PR);
-  U.pr.value=PR;
+  resizePost();
+  if(reflRT) reflRT.setSize(Math.round(w*PR*post.scale*0.5),Math.round(h*PR*post.scale*0.5));
+  U.pr.value=PR*post.scale;
 }
 addEventListener('resize',resize);
 export async function boot(){
@@ -139,6 +140,7 @@ export async function boot(){
   for(let i=0;i<12;i++){ const lane=i%2; newCar(1,lane,ego.s+60+i*85+rr(-15,15),(lane?21:18.5)+rr(-1,1)); }
   for(let i=0;i<10;i++){ newCar(-1,i%2,ego.s+80+i*140+rr(-20,20),rr(18,22)); }
   waterNear=waterPoints();
+  initAutoscale(); if(!params.has('frames')) loadHint(); autoscale.onChange=s=>{ post.scale=s; resize(); }; autoscale.onTier=applyAA;
   settings.applyAll();
   if(params.has('rain')){ state.weatherMode='rain'; state.rain=0.9; state.wet=1; document.getElementById('bWeather').textContent='天気: 雨'; }
   if(params.has('skip')) { const s=parseFloat(params.get('skip')); ego.s=s; ensurePath(ego.s+AHEAD+1100); for(const c of chunks.values()) disposeChunk(c); chunks.clear(); cars.length=0;
@@ -146,10 +148,10 @@ export async function boot(){
   if(params.has('clean')) setView('clean');
   if(params.has('debug')) setDebug(true);
   if(params.has('perf')) togglePerf(true);
-  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={ego,sections,state,cars,chunks,U,renderer,scene,settings}; (window as any).__perf=perf;
+  (window as any).__pathArr=()=>P.arr; (window as any).__dbg={ego,sections,state,cars,chunks,U,renderer,scene,settings,dbg,post,finalU,interiorPass,autoscale,get world(){return {sky,ground,skyline,skylineLights};}}; (window as any).__perf=perf;
   const go=document.getElementById('go') as HTMLButtonElement; go.disabled=false; go.textContent='▶  出発';
   let last=performance.now()/1000;
-  const loop=()=>{ requestAnimationFrame(loop); const nowMs=performance.now(); const now=nowMs/1000; perf.frame(nowMs); const dt=Math.min(0.05,now-last); last=now;
+  const loop=()=>{ requestAnimationFrame(loop); const nowMs=performance.now(); const now=nowMs/1000; perf.frame(nowMs); autoscaleTick((now-last)*1000); const dt=Math.min(0.05,now-last); last=now;
     update(dt); render(); perf.cpu(performance.now()-nowMs); updatePerfHud(dt); };
   if(params.has('frames')){ // deterministic stepping for testing
     const n=parseInt(params.get('frames')); for(let i=0;i<n;i++) update(1/30); render(); (window as any).__ready=true;

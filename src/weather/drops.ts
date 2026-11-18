@@ -6,6 +6,7 @@ import { dropsCtx, dropsPass, dropsTex } from '../render/post';
 import { ego } from '../traffic/traffic';
 
 export let drops=[];
+let dropsEmpty=false;
 export function clearDrops(){ drops=[]; }
 export const PIV=[[280,375],[615,375]], BL=[[50,300],[50,335]];
 export function wiperAngle(ph){ // phase 0..1 → angle (rad, math coords, y up)
@@ -43,11 +44,14 @@ export function updateDrops(dt){
     }
   }
   // draw
+  if(drops.length===0 && dropsEmpty){ /* 乾いている間はテクスチャを更新しない */ } else {
+  dropsEmpty=drops.length===0;
   const x=dropsCtx; x.clearRect(0,0,640,360);
   for(const d of drops){ const gr=x.createRadialGradient(d.x-d.r*0.25,d.y-d.r*0.3,0,d.x,d.y,d.r); gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.6,'rgba(255,255,255,0.65)'); gr.addColorStop(1,'rgba(255,255,255,0)');
     x.globalAlpha=1-sstep(d.max-1.4,d.max,d.life); x.fillStyle=gr; x.beginPath(); x.ellipse(d.x,d.y,d.r*(0.7+0.3*x.globalAlpha),d.r*0.9*(0.7+0.3*x.globalAlpha),0,0,7); x.fill(); }
   x.globalAlpha=1;
   dropsTex.needsUpdate=true;
+  }
   const asp=innerWidth/innerHeight;
   const toUV=(px,py)=>[px/640*asp,1-py/360];
   const seg=(k)=>{ const [cx,cy]=PIV[k]; const a=state.wiperAng[k]; const r0=BL[k][0]*0.4, r1=BL[k][1];

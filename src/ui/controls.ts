@@ -5,11 +5,14 @@ import { rr } from '../core/util';
 import { setDebug } from '../debug/birdseye';
 import { togglePerf } from '../debug/perf';
 import { resize } from '../main';
-import { interiorPass } from '../render/post';
+import { autoscale, forceScale } from '../render/autoscale';
+import { interiorPass, post } from '../render/post';
 import { setQuality } from '../render/renderer';
 import { clearDrops } from '../weather/drops';
 
 const $ = (id: string) => document.getElementById(id)!;
+/** 撮影用の ?frames 実行では解像度を固定し、結果を再現可能にする */
+const FIXED = new URLSearchParams(location.search).has('frames');
 const optLabel = (id: string, v: string) => settings.def(id)!.options!.find(o => o.value === v)!.label;
 
 /* ---- 既存の調整値を設定レジストリへ登録 ---- */
@@ -31,10 +34,30 @@ settings.define<string>({
   },
 });
 settings.define<string>({
-  id: 'gfx.quality', label: '画質', group: 'VIEW', type: 'select', default: 'high',
-  options: [{ value: 'high', label: '高' }, { value: 'low', label: '低' }],
-  apply: v => { setQuality(v); $('bQual').textContent = '画質: ' + optLabel('gfx.quality', v); resize(); },
+  id: 'gfx.quality', label: '画質', group: 'VIEW/画質', type: 'select', default: 'auto',
+  options: [{ value: 'auto', label: '自動' }, { value: 'high', label: '高' }, { value: 'low', label: '軽量' }],
+  apply: v => {
+    setQuality(v); $('bQual').textContent = '画質: ' + optLabel('gfx.quality', v);
+    autoscale.enabled = v === 'auto' && !FIXED;
+    if (autoscale.enabled) forceScale(autoscale.scale); else forceScale(v === 'low' ? 0.6 : 1);
+    applyAA();
+  },
 });
+settings.define<string>({
+  id: 'gfx.aa', label: '輪郭のなめらかさ', group: 'VIEW/画質', type: 'select', default: 'auto',
+  options: [{ value: 'auto', label: '自動' }, { value: 'fxaa', label: '軽い(FXAA)' }, { value: '2', label: 'MSAA 2x' }, { value: '4', label: 'MSAA 4x' }, { value: '0', label: 'なし' }],
+  apply: () => applyAA(),
+});
+/** 輪郭処理の方式を決める。「自動」は MSAA 4x から始め、重ければ FXAA に切り替える。 */
+export function applyAA() {
+  const q = settings.get<string>('gfx.quality'); let aa = settings.get<string>('gfx.aa');
+  autoscale.aaAuto = aa === 'auto' && q === 'auto' && !FIXED;
+  if (aa === 'auto') aa = q === 'low' || FIXED ? 'fxaa' : q === 'high' ? '4' : (autoscale.msaaOK ? '4' : 'fxaa');
+  post.fxaa = aa === 'fxaa'; post.samples = aa === 'fxaa' ? 0 : parseInt(aa);
+  resize();
+}
+settings.define<boolean>({ id: 'gfx.reflect', label: '路面・水面の反射', group: 'VIEW/画質', type: 'toggle', default: true });
+settings.define<boolean>({ id: 'gfx.mirror', label: 'ルームミラー', group: 'VIEW/画質', type: 'toggle', default: true });
 settings.define<number>({
   id: 'audio.master', label: '音量', group: 'SOUND', type: 'range', default: 0.8, min: 0, max: 1, step: 0.01,
   apply: v => { sound.setVolume(v); ($('vol') as HTMLInputElement).value = String(v); },
